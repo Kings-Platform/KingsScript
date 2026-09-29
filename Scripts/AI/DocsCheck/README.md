@@ -17,6 +17,7 @@ never fixes, since what a broken link meant to point at is a human call.
 |---|---|
 | `--root DIR` | Folder to check |
 | `--skip PREFIX` | Link prefix that isn't validated, e.g. a path into another repo — repeatable |
+| `--no-global` | Skips `~/.claude/CLAUDE.md` and `~/.claude/agents/` — checked by default, since they cite the docs too |
 | `-v` | Also lists every file checked |
 
 Exit codes: `1` on any problem (or a bad argument) · `0` when clean or with warnings only.

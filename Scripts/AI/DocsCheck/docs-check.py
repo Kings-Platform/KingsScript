@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# `kings docs-check [--root DIR] [--skip PREFIX]... [-v]`: deterministic hygiene check of a
+# `kings docs-check [--root DIR] [--skip PREFIX]... [--no-global] [-v]`: deterministic hygiene check of a
 # markdown docs tree. Reports, never fixes — what a broken link meant to point at is a human call.
 
 import os
@@ -7,7 +7,7 @@ import re
 import sys
 import unicodedata
 
-USAGE = """Usage: kings docs-check [--root DIR] [--skip PREFIX]... [-v]
+USAGE = """Usage: kings docs-check [--root DIR] [--skip PREFIX]... [--no-global] [-v]
   Checks, without fixing anything:
     1. relative link to a .md that doesn't resolve
     2. #anchor that doesn't exist in the target page
@@ -18,6 +18,8 @@ USAGE = """Usage: kings docs-check [--root DIR] [--skip PREFIX]... [-v]
   --root DIR        folder to check; default: $KINGS_DOCS_ROOT, else the current folder.
                     Pages live in <root>/docs, or in <root> itself when there's no docs/
   --skip PREFIX     link prefix that isn't validated (e.g. a path into another repo); repeatable
+  --no-global       skip the machine-wide Claude files (~/.claude/CLAUDE.md, ~/.claude/agents/),
+                    which are checked by default since they cite the docs too
   -v, --verbose     also lists every file checked
 
   One line per problem. Exit 1 on problems, 0 when there are only warnings."""
@@ -49,13 +51,16 @@ EMOJI_RANGES = (
 
 # Flag first, then the environment, then the current folder.
 def parse_args(args):
-    opts = {"root": os.environ.get("KINGS_DOCS_ROOT") or os.getcwd(), "skip": [], "verbose": False}
+    opts = {"root": os.environ.get("KINGS_DOCS_ROOT") or os.getcwd(), "skip": [], "verbose": False,
+            "global": True}
     while args:
         a = args.pop(0)
         if a == "--root" and args:
             opts["root"] = args.pop(0)
         elif a == "--skip" and args:
             opts["skip"].append(args.pop(0))
+        elif a == "--no-global":
+            opts["global"] = False
         elif a in ("-v", "--verbose"):
             opts["verbose"] = True
         elif a in ("-h", "--help"):
@@ -89,8 +94,18 @@ def walk(base, exempt=frozenset()):
         yield dirpath, dirnames, names
 
 
+# Machine-wide Claude files: they point at the docs as much as the project's own ones do.
+def global_md_files():
+    claude = os.path.expanduser("~/.claude")
+    out = [os.path.join(d, n) for d, _, names in os.walk(os.path.join(claude, "agents"))
+           for n in names if n.endswith(".md")]
+    if os.path.isfile(os.path.join(claude, "CLAUDE.md")):
+        out.append(os.path.join(claude, "CLAUDE.md"))
+    return out
+
+
 # Every relevant .md: the docs tree, the project's CLAUDE.md, skills and agents.
-def md_files(root):
+def md_files(root, include_global):
     out = [os.path.join(d, n) for d, _, names in walk(docs_dir(root)) for n in names
            if n.endswith(".md")]
     for dirpath, _, names in os.walk(os.path.join(root, ".claude")):
@@ -98,6 +113,8 @@ def md_files(root):
     claude_md = os.path.join(root, "CLAUDE.md")
     if os.path.isfile(claude_md):
         out.append(claude_md)
+    if include_global:
+        out += global_md_files()
     return sorted(set(out))
 
 
@@ -268,7 +285,7 @@ def main():
     ctx = {"root": opts["root"], "skip": SKIP_PREFIXES + tuple(opts["skip"]),
            "problems": [], "warnings": [], "headings": {}, "links": {}}
 
-    files = md_files(ctx["root"])
+    files = md_files(ctx["root"], opts["global"])
     check_links(ctx, files)
     check_index(ctx)
     check_skills(ctx)
