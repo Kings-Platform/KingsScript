@@ -19,6 +19,7 @@ run_core_command() {
     git-deletebranch) exec "$SCRIPTS_DIR/Git/DeleteBranch/delete-branch.sh" "$@" ;;
     xcode-simulator) exec "$SCRIPTS_DIR/Xcode/Simulator/simulator.sh" "$@" ;;
     xcode-deeplink) exec "$SCRIPTS_DIR/Xcode/Deeplink/deeplink.sh" "$@" ;;
+    slack-test) exec "$SCRIPTS_DIR/Slack/Test/slack-test.sh" "$@" ;;
   esac
 }
 

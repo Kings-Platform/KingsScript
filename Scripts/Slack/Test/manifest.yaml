@@ -1,0 +1,23 @@
+# Slack app used by `kings slack-test`. Create it at api.slack.com/apps →
+# "Create New App" → "From an app manifest", then install it to the workspace.
+# groups:history reads private channels; add channels:history for public ones.
+display_information:
+  name: KingsBot
+  description: Personal scripts that read and post Slack messages
+  background_color: "#1f2937"
+
+features:
+  bot_user:
+    display_name: KingsBot
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - groups:history
+
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

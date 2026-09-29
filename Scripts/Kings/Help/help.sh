@@ -24,6 +24,9 @@ print_core_commands() {
   printf '\nXcode:\n'
   row "xcode-simulator [device]" "Open the Simulator, booting the device if given"
   row "xcode-deeplink <url>" "Open a URL in the booted simulator"
+
+  printf '\nSlack:\n'
+  row "slack-test [channel_id]" "Read and post in a channel to check the app"
 }
 
 # Each layer lists its own commands, under its name.
