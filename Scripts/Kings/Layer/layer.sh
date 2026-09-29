@@ -27,10 +27,12 @@ layer_list() {
 layer_add() {
   [ -n "$1" ] || usage
   local path name layer
+  # Absolute path, so the registry works from any folder.
   path="$(cd "$1" 2> /dev/null && pwd)" || { print_error "Folder not found: $1"; exit 1; }
   layer_is_valid "$path" || { print_error "Not a layer (no layer.env): $path"; exit 1; }
   name="$(layer_name "$path")"
 
+  # Rejects the same folder twice, or two layers with the same name.
   while IFS= read -r layer; do
     if [ "$layer" = "$path" ]; then
       print_warn "Already registered: $name"
@@ -49,6 +51,7 @@ layer_add() {
 
 layer_remove() {
   [ -n "$1" ] || usage
+  # Rebuilds the registry without the matching line.
   local layer kept="" removed=""
   while IFS= read -r layer; do
     if [ "$layer" = "$1" ] || [ "$(layer_name "$layer")" = "$1" ]; then
@@ -71,6 +74,7 @@ layer_create() {
     exit 1
   fi
   mkdir -p "$path"
+  # Copies the template and names the new layer.
   cp -R "$TEMPLATE_DIR/." "$path/"
   printf 'LAYER_NAME="%s"\n' "$name" > "$path/layer.env"
   print_success "Layer '$name' created at $path"

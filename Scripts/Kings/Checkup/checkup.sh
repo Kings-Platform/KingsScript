@@ -12,6 +12,7 @@
 
 CHECKUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --force ignores what already ran in the current period.
 force=0
 case "$1" in
   --force) force=1 ;;
@@ -22,6 +23,7 @@ case "$1" in
     ;;
 esac
 
+# Everything already done today: nothing to do.
 today="$(date +%Y-%m-%d)"
 [ "$force" -eq 0 ] && [ "$(cache_get checkup.last)" = "$today" ] && exit 0
 
@@ -33,6 +35,7 @@ find "$lock" -maxdepth 0 -mmin +10 -exec rmdir {} \; 2> /dev/null
 mkdir "$lock" 2> /dev/null || exit 0
 trap 'rmdir "$lock"' EXIT
 
+# Identifies the current period: a task runs again when this value changes.
 period_stamp() {
   case "$1" in
     daily) date +%Y-%m-%d ;;
@@ -45,6 +48,7 @@ period_stamp() {
 failures=0
 task_prefix=""
 
+# Runs a task if it hasn't succeeded yet in the current period.
 checkup_task() {
   local id="$task_prefix$1" period="$2" script="$3" stamp
   if ! stamp="$(period_stamp "$period")"; then
@@ -63,6 +67,7 @@ checkup_task() {
   fi
 }
 
+# Core tasks first, then each layer's.
 . "$CHECKUP_DIR/tasks.sh"
 
 while IFS= read -r layer; do
@@ -72,5 +77,6 @@ while IFS= read -r layer; do
   . "$layer/checkup.sh"
 done < <(layers_list)
 
+# Only a fully successful run skips the rest of the day; failures retry on the next shell.
 [ "$failures" -eq 0 ] && cache_set checkup.last "$today"
 exit "$failures"

@@ -8,6 +8,7 @@
 
 HOOKS_DIR="$KINGS_HOME/git-hooks"
 
+# Whether layer hooks are on, and whether git points to the KingsScript hooks.
 hooks_status() {
   local state="on" path
   [ "$(cache_get hooks)" = "off" ] && state="off"
@@ -28,8 +29,10 @@ hooks_run() {
   shift
 
   local input="" status=0 git_dir layer script
+  # Keeps stdin (if git sent any) to hand the same data to every script.
   [ -t 0 ] || input="$(cat)"
 
+  # Runs a hook script with the saved stdin.
   feed() {
     if [ -n "$input" ]; then
       printf '%s\n' "$input" | "$@"
@@ -44,8 +47,10 @@ hooks_run() {
     feed "$git_dir/hooks/$name" "$@" || exit $?
   fi
 
+  # `kings hooks off` silences the layers, not the repo's own hook.
   [ "$(cache_get hooks)" = "off" ] && exit 0
 
+  # Every layer with a script for this hook; the exit code is the last failure, if any.
   while IFS= read -r layer; do
     script="$layer/hooks/$name.sh"
     [ -x "$script" ] || continue

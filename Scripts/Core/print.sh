@@ -4,6 +4,7 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/log.sh"
 
+# Logs the message, then shows it colored when stderr is a terminal (plain for pipes and AI).
 _print() {
   local color="$1" level="$2"
   shift 2

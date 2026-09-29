@@ -9,6 +9,7 @@
 
 KINGS_KEYCHAIN_SERVICE="kings"
 
+# Letters, digits and _, not starting with a digit: a valid environment variable name.
 secret_valid_name() {
   case "$1" in
     '' | [0-9]* | *[!A-Za-z0-9_]*) return 1 ;;
@@ -21,6 +22,7 @@ _secret_keychain() {
 
 secret_get() {
   secret_valid_name "$1" || return 1
+  # ${!1} reads the variable whose name is in $1.
   if [ -n "${!1}" ]; then
     printf '%s\n' "${!1}"
     return 0
@@ -39,6 +41,7 @@ secret_source() {
 
 secret_set() {
   secret_valid_name "$1" || return 1
+  # -U updates an existing entry; -w last makes `security` prompt for the value.
   security add-generic-password -U -s "$KINGS_KEYCHAIN_SERVICE" -a "$1" -w
 }
 
