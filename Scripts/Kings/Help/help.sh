@@ -9,12 +9,17 @@ row() {
 }
 
 print_core_commands() {
-  printf 'Usage: kings <command> [args...]\n\nCore:\n'
+  printf 'Usage: kings <command> [args...]\n\nKings:\n'
   row "help" "Show this help"
   row "layer list|add|remove|create" "Manage layers"
   row "hooks on|off|status" "Toggle every layer's git hooks"
   row "checkup [--force]" "Run periodic maintenance tasks now"
-  row "secret set|delete|status <NAME>" "Manage secrets in the Keychain"
+  row "secret set|delete|status <NAME>" "Manage secrets in the Keychain (set prompts)"
+
+  printf '\nGit:\n'
+  row "git-swiftformatstaged" "Format the staged .swift files"
+  row "git-prreview <PR>" "PR review comments as a markdown table"
+  row "git-deletebranch [branch]" "Delete a local branch (current by default)"
 }
 
 # Each layer lists its own commands, under its name.
