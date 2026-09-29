@@ -35,6 +35,10 @@ print_core_commands() {
   printf '\nAI:\n'
   row "graph info|find|deps|impact|update" "Query the repo's Graphify dependency graph"
   row "docs-check [--root DIR]" "Find broken links, anchors and orphan pages in docs"
+
+  printf '\nDesign:\n'
+  row "fig-parse <file.fig> [flags]" "Extract layout, colors and text from a Figma file"
+  row "fig-check [file.fig] [--update]" "Regression check of fig-parse against fixtures"
 }
 
 # Each layer lists its own commands, under its name.

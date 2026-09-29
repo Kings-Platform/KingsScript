@@ -1,0 +1,13 @@
+{
+  "name": "kings-figma",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Extracts hierarchy, layout and typography from Figma .fig files into AI-readable artifacts. Run through `kings fig-parse` and `kings fig-check`.",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "openfig-core": "^0.4.1"
+  }
+}
