@@ -34,6 +34,18 @@ or project.
 | ![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white) | 3.2, the system `/bin/bash` |
 | ![Git](https://img.shields.io/badge/Git-F05032?logo=git&logoColor=white) | Any |
 
+Some commands need more — each one says so when it's missing:
+
+| Tool | Used by |
+|---|---|
+| `gh` (logged in) | `git-prreview` |
+| `swiftformat` | `git-swiftformatstaged` |
+| Xcode | `xcode-*` |
+| `jq` | `slack-test` |
+| Python 3 | `graph`, `docs-check` |
+| Graphify | `graph` |
+| Node 20+ and `npm install --prefix Scripts/Design/Figma` | `fig-*` |
+
 ## Install
 
 ```bash
@@ -63,7 +75,8 @@ kings layer add /path/to/some-layer
 |---|---|
 | [`Scripts/main.sh`](Scripts/main.sh) | Dispatcher — core commands first, then each layer |
 | [`Scripts/Core/`](Scripts/Core/) | Shared library (see [Core library](#core-library)) |
-| [`Scripts/Kings/`](Scripts/Kings/) | The core commands |
+| [`Scripts/Kings/`](Scripts/Kings/) | Commands that manage `kings` itself |
+| `Scripts/<Area>/<Subject>/` | Every other command, one folder per subject — with a `README.md` when it needs one |
 | [`install/`](install/) | Install and uninstall |
 | [`templates/layer/`](templates/layer/) | Starting point for a new layer |
 
@@ -72,7 +85,7 @@ kings layer add /path/to/some-layer
 | Path | What it is |
 |---|---|
 | `bin/kings` | The command |
-| `config.env` | Machine settings, loaded by every command |
+| `config.env` | Machine settings, loaded by every command — see [`config.example.env`](install/config.example.env) |
 | `layers` | Registered layers, one path per line |
 | `cache.txt` | `key=value` state shared by every command |
 | `logs/` | One `YYYY-MM-DD.log` per day — past months zipped as `YYYY-MM.zip` |
@@ -81,6 +94,8 @@ kings layer add /path/to/some-layer
 
 ## Commands
 
+**Kings:**
+
 | Command | What it does |
 |---|---|
 | `kings help` | Lists every command: core first, then each layer |
@@ -88,6 +103,23 @@ kings layer add /path/to/some-layer
 | `kings hooks on \| off \| status` | Turns every layer's git hooks on or off |
 | `kings checkup [--force]` | Runs the periodic tasks now |
 | `kings secret set \| delete \| status <NAME>` | Keeps secrets in the Keychain — `set` asks for the value |
+
+**Tools:**
+
+| Area | Command | What it does |
+|---|---|---|
+| [Git](Scripts/Git/) | `git-swiftformatstaged` | Formats the staged `.swift` files and stages them again — partially staged files are skipped |
+| | `git-prreview <PR>` | PR review comments as a markdown table |
+| | `git-deletebranch [branch]` | Deletes a local branch, the current one by default |
+| [Xcode](Scripts/Xcode/) | `xcode-simulator [device]` | Opens the Simulator, booting the device if given |
+| | `xcode-deeplink <url>` | Opens a URL in the booted simulator |
+| [Slack](Scripts/Slack/Test/) | `slack-test [channel]` | Reads and posts in a channel to check a Slack app |
+| [Installers](Scripts/Installers/) | `install-tabby` | Installs Tabby without admin rights |
+| | `install-gem <gem> [version]` | Installs a Ruby gem without admin rights |
+| [AI](Scripts/AI/) | [`graph`](Scripts/AI/Graph/) | Queries the repo's Graphify dependency graph |
+| | [`docs-check`](Scripts/AI/DocsCheck/) | Finds broken links, anchors and orphan pages in docs |
+| [Design](Scripts/Design/Figma/) | `fig-parse <file.fig>` | Extracts layout, colors and text from a Figma file |
+| | `fig-check [file.fig]` | Regression check of `fig-parse` |
 
 Exit codes: `0` success · `1` error · `127` unknown command.
 
@@ -152,6 +184,7 @@ Loaded with `. "$KINGS_CORE/<module>.sh"`.
 | `secrets.sh` | `secret_get <NAME>` — env var first, then Keychain; `secret_set`, `secret_delete`, `secret_source` |
 | `cache.sh` | `cache_get`, `cache_set`, `cache_unset` |
 | `notify.sh` | `notify_banner`, `notify_alert`, `notify_dialog` |
+| `zshrc.sh` | `zshrc_set_block <name> <content>`, `zshrc_remove_block`, `zshrc_has_block` — named blocks in `~/.zshrc` |
 | `timer.sh` | `timer_elapsed` — `HH:MM:SS` since the script started |
 | `layers.sh` | `layers_list`, `layer_name`, `layer_is_valid` |
 
