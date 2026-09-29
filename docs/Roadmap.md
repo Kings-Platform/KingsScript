@@ -24,6 +24,8 @@ O core é genérico e serve de **base pra qualquer contexto**: cada empresa (ou 
 | 11 | **Bash 3.2** (`/bin/bash` do macOS) | É o que roda nos hooks do Git; nada de array associativo, `mapfile` ou `${var,,}` |
 | 12 | **Camada da Novibet**: repo privado no GitHub da empresa. **Camada do Santander**: repo no GitHub pessoal, a partir do histórico do Kings-Script4 | |
 | 13 | **Trunk-based**: branch curta a partir do `main` | |
+| 14 | **Feito pra humano e pra IA**: todo comando roda sem terminal (entrada por argumento, sem prompt), resultado no stdout, mensagens no stderr, exit code previsível (`0`/`1`/`127`) | A IA é tão usuária do `kings` quanto o Gui (ex.: `graph`, `docs-check`, `vpn status`) |
+| 15 | **`kings` é um executável** em `~/.kingsScripts/bin/`, no `PATH` pelo `.zshrc`, e não uma função do shell | Função só existe em shell interativo; agente de IA e hook de Git não carregam o `.zshrc`, mas chamam o caminho absoluto |
 
 ## Fases
 

@@ -6,23 +6,42 @@ The core is generic and reusable anywhere. Everything tied to a company or proje
 **layer**: a separate repository that plugs its own commands, git hooks and periodic tasks into
 `kings`, and uses the core library (logs, prints, secrets, cache) instead of reinventing it.
 
+Built to be used by people and by AI agents alike: every command runs without a terminal,
+keeps results on stdout and messages on stderr, and has predictable exit codes.
+
 ## Install
 
+Requirements: macOS and `git`. Clone anywhere; the repository stays where it is and the
+installer only records its path.
+
 ```bash
+cd ~/Documents/GitHub   # any folder
 git clone https://github.com/Kings-Platform/KingsScript.git
-KingsScript/install/install.sh
+./KingsScript/install/install.sh
+source ~/.zshrc
+kings help
 ```
 
-The repository stays where it was cloned; the installer only records its path. It:
+Then register the layers this machine uses:
+
+```bash
+kings layer add /path/to/some-layer
+kings help   # the layer's commands now show up
+```
+
+What the installer does:
 
 - creates `~/.kingsScripts/`, the machine state (see below);
-- adds a marked block to `~/.zshrc` with the `kings` function and the background checkup;
+- writes the `kings` executable to `~/.kingsScripts/bin/`;
+- adds a marked block to `~/.zshrc`: that folder on the `PATH`, plus the background checkup;
 - points the global `core.hooksPath` to `~/.kingsScripts/git-hooks/`, saving any previous value.
 
-Run it again after moving the repository. `install/uninstall.sh` undoes everything and keeps
-`~/.kingsScripts/` unless given `--purge`.
+Run it again after moving the repository. To remove it:
 
-Requirements: macOS, `git`. Scripts target `/bin/bash` (3.2).
+```bash
+./KingsScript/install/uninstall.sh           # keeps ~/.kingsScripts (logs, config, layers)
+./KingsScript/install/uninstall.sh --purge   # removes it too
+```
 
 ## Machine state: `~/.kingsScripts/`
 
@@ -32,6 +51,7 @@ Requirements: macOS, `git`. Scripts target `/bin/bash` (3.2).
 | `layers` | Registered layers, one path per line, in lookup order |
 | `cache.txt` | `key=value` state shared by every command |
 | `logs/YYYY-MM-DD.log` | One log per day; past months are zipped into `logs/YYYY-MM.zip` |
+| `bin/kings` | The command itself |
 | `git-hooks/` | Global git hook stubs |
 | `backup/` | `.zshrc` copies taken by the installer |
 
@@ -45,7 +65,32 @@ Override the location with `KINGS_HOME`.
 | `layer list \| add <path> \| remove <name\|path> \| create <path> [name]` | Manage layers |
 | `hooks on \| off \| status` | Toggle every layer's git hooks without touching `core.hooksPath` |
 | `checkup [--force]` | Run periodic tasks now (normally automatic, see below) |
-| `secret set \| delete \| status <NAME>` | Manage secrets in the Keychain; values are never printed |
+| `secret set \| delete \| status <NAME>` | Manage secrets in the Keychain; values are never printed. `set` prompts, so it needs a terminal |
+
+Exit codes: `0` success, `1` error or wrong usage, `127` unknown command.
+
+## For AI agents
+
+- `kings help` lists every command available on the machine, core and layers. Prefer an
+  existing command over writing a one-off script.
+- Shells that don't load `~/.zshrc` may not have `kings` on the `PATH`; call
+  `~/.kingsScripts/bin/kings` instead.
+- The result of a command is on stdout; progress and errors are on stderr, without colors when
+  not on a terminal.
+- To debug a run, read today's log, `~/.kingsScripts/logs/$(date +%Y-%m-%d).log`, and filter by
+  the command label (e.g. `[acme:deploy`).
+- Ask the user before running anything that changes the machine setup: `install/*.sh`,
+  `layer add|remove`, `secret set|delete`.
+
+Snippet for an agent's global instructions (`~/.claude/CLAUDE.md`, `AGENTS.md`):
+
+```markdown
+## KingsScript
+Personal scripts run through `kings <command>` (or `~/.kingsScripts/bin/kings` when not on
+the PATH). Run `kings help` to see what exists before writing a new script; new personal
+scripts become `kings` commands. Logs: `~/.kingsScripts/logs/<date>.log`.
+Docs: https://github.com/Kings-Platform/KingsScript
+```
 
 ## Layers
 
@@ -75,6 +120,13 @@ case "$cmd" in
   *)     exit 127 ;;
 esac
 ```
+
+Every command, so that people and agents can use it the same way:
+
+- takes its input as arguments and never prompts; a command that must prompt says so in its
+  `help` line;
+- prints its result to stdout and messages through `print_*`;
+- exits `0` on success and `1` on failure (`127` is reserved for "not mine").
 
 **Environment.** Layer scripts receive `KINGS_CORE` (core library), `KINGS_ROOT`,
 `KINGS_HOME`, `KINGS_CMD` (`<layer>:<command>`, used as the log label) and every variable from
