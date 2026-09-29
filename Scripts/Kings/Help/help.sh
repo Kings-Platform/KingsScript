@@ -20,6 +20,10 @@ print_core_commands() {
   row "git-swiftformatstaged" "Format the staged .swift files"
   row "git-prreview <PR>" "PR review comments as a markdown table"
   row "git-deletebranch [branch]" "Delete a local branch (current by default)"
+
+  printf '\nXcode:\n'
+  row "xcode-simulator [device]" "Open the Simulator, booting the device if given"
+  row "xcode-deeplink <url>" "Open a URL in the booted simulator"
 }
 
 # Each layer lists its own commands, under its name.

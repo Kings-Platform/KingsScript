@@ -17,6 +17,8 @@ run_core_command() {
     git-swiftformatstaged) exec "$SCRIPTS_DIR/Git/SwiftFormatStaged/swiftformat-staged.sh" "$@" ;;
     git-prreview) exec "$SCRIPTS_DIR/Git/PRReview/pr-review.sh" "$@" ;;
     git-deletebranch) exec "$SCRIPTS_DIR/Git/DeleteBranch/delete-branch.sh" "$@" ;;
+    xcode-simulator) exec "$SCRIPTS_DIR/Xcode/Simulator/simulator.sh" "$@" ;;
+    xcode-deeplink) exec "$SCRIPTS_DIR/Xcode/Deeplink/deeplink.sh" "$@" ;;
   esac
 }
 
