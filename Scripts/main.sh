@@ -14,6 +14,18 @@ run_core_command() {
     hooks) exec "$SCRIPTS_DIR/Kings/Hooks/hooks.sh" "$@" ;;
     checkup) exec "$SCRIPTS_DIR/Kings/Checkup/checkup.sh" "$@" ;;
     secret) exec "$SCRIPTS_DIR/Kings/Secret/secret.sh" "$@" ;;
+    git-swiftformatstaged) exec "$SCRIPTS_DIR/Git/SwiftFormatStaged/swiftformat-staged.sh" "$@" ;;
+    git-prreview) exec "$SCRIPTS_DIR/Git/PRReview/pr-review.sh" "$@" ;;
+    git-deletebranch) exec "$SCRIPTS_DIR/Git/DeleteBranch/delete-branch.sh" "$@" ;;
+    xcode-simulator) exec "$SCRIPTS_DIR/Xcode/Simulator/simulator.sh" "$@" ;;
+    xcode-deeplink) exec "$SCRIPTS_DIR/Xcode/Deeplink/deeplink.sh" "$@" ;;
+    slack-test) exec "$SCRIPTS_DIR/Slack/Test/slack-test.sh" "$@" ;;
+    install-tabby) exec "$SCRIPTS_DIR/Installers/Tabby/install-tabby.sh" "$@" ;;
+    install-gem) exec "$SCRIPTS_DIR/Installers/Gem/install-gem.sh" "$@" ;;
+    graph) exec python3 "$SCRIPTS_DIR/AI/Graph/graph.py" "$@" ;;
+    docs-check) exec python3 "$SCRIPTS_DIR/AI/DocsCheck/docs-check.py" "$@" ;;
+    fig-parse) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/parse-fig.js" "$@" ;;
+    fig-check) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/check.js" "$@" ;;
   esac
 }
 

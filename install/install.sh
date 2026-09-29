@@ -5,7 +5,7 @@ export KINGS_CMD="install"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/Scripts/Core/cache.sh"
 . "$ROOT/Scripts/Core/print.sh"
-. "$ROOT/install/zshrc.sh"
+. "$ROOT/Scripts/Core/zshrc.sh"
 
 BIN_DIR="$KINGS_HOME/bin"
 HOOKS_DIR="$KINGS_HOME/git-hooks"
@@ -57,7 +57,7 @@ set_git_hooks_path() {
 # Puts `kings` on the PATH and starts the checkup in the background on every new shell.
 update_zshrc() {
   [ -f "$ZSHRC" ] && cp "$ZSHRC" "$KINGS_HOME/backup/zshrc.$(date +%Y-%m-%d_%H-%M-%S)"
-  zshrc_set_block "export PATH=\"$BIN_DIR:\$PATH\"
+  zshrc_set_block kings "export PATH=\"$BIN_DIR:\$PATH\"
 ( kings checkup > /dev/null 2>&1 & )"
   print_info "Shell: $ZSHRC"
 }

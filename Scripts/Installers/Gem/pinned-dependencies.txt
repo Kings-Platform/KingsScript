@@ -1,0 +1,10 @@
+# <gem> <dependency> <version>
+# Dependencies installed first, at versions that still build on the macOS system Ruby;
+# the latest ones need a newer Ruby and make the gem's own install fail.
+fastlane aws-eventstream 1.3.2
+fastlane aws-sigv4 1.11.0
+fastlane aws-partitions 1.1109.0
+fastlane aws-sdk-core 3.222.1
+fastlane aws-sdk-kms 1.99.0
+fastlane aws-sdk-s3 1.183.0
+cocoapods concurrent-ruby 1.3.4
