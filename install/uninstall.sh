@@ -5,12 +5,12 @@ export KINGS_CMD="uninstall"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/Scripts/Core/cache.sh"
 . "$ROOT/Scripts/Core/print.sh"
-. "$ROOT/install/zshrc.sh"
+. "$ROOT/Scripts/Core/zshrc.sh"
 
 HOOKS_DIR="$KINGS_HOME/git-hooks"
 
 update_zshrc() {
-  zshrc_remove_block
+  zshrc_remove_block kings
   print_info "Removed the kings block from $ZSHRC"
 }
 
