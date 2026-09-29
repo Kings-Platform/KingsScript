@@ -27,6 +27,10 @@ print_core_commands() {
 
   printf '\nSlack:\n'
   row "slack-test [channel_id]" "Read and post in a channel to check the app"
+
+  printf '\nInstallers (no admin rights needed):\n'
+  row "install-tabby" "Install Tabby in ~/Apps and hand Terminal off to it"
+  row "install-gem <gem> [version]" "Install a Ruby gem in the user folder"
 }
 
 # Each layer lists its own commands, under its name.
