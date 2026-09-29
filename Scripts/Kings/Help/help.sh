@@ -33,7 +33,7 @@ print_core_commands() {
   row "install-gem <gem> [version]" "Install a Ruby gem in the user folder"
 
   printf '\nAI:\n'
-  row "graph info|find|deps|impact|update" "Query the repo's Graphify dependency graph"
+  row "graph <subcommand>" "Graphify dependency graph: info, find, deps, impact, update"
   row "docs-check [--root DIR]" "Find broken links, anchors and orphan pages in docs"
 
   printf '\nDesign:\n'
