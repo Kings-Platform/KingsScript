@@ -49,7 +49,7 @@ Every command accepts `--graph DIR`. Exit codes: `0` success · `1` error.
 |---|---|
 | Graph folder | `--graph DIR` → `$KINGS_GRAPH_DIR` → `<git root of the cwd>/graphify-out` |
 | `graph.json` | `<graph folder>/graph.json`, or `<graph folder>/graphify-out/graph.json` |
-| `SOURCE.json` | Next to `graph.json` |
+| `SOURCE.json` | Next to `graph.json` — read from one folder up when the graph is inside `graphify-out/` and it's only there (older layout) |
 | Repo `update` reads | `[path]`, else the git root of the cwd — must be a git repo |
 
 To keep the graph out of the repo, point `KINGS_GRAPH_DIR` (in `config.env`) at any other folder.

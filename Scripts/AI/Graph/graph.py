@@ -80,6 +80,17 @@ def source_file_path(graph_path):
     return os.path.join(os.path.dirname(graph_path), "SOURCE.json")
 
 
+# Older layouts kept SOURCE.json next to graphify-out/, not inside it. Read-only fallback:
+# `update` always stamps next to graph.json.
+def existing_source_file(graph_path):
+    here = source_file_path(graph_path)
+    graph_dir = os.path.dirname(graph_path)
+    parent = os.path.join(os.path.dirname(graph_dir), "SOURCE.json")
+    if not os.path.exists(here) and os.path.basename(graph_dir) == "graphify-out" and os.path.exists(parent):
+        return parent
+    return here
+
+
 # ------------------------------------------------------------------------------------ load
 
 class Graph:
@@ -159,7 +170,7 @@ def repo_state(target):
 
 # SOURCE.json comes from `kings graph update`; graphify's own `built_at_commit` is the fallback.
 def read_source(g):
-    path = source_file_path(g.path)
+    path = existing_source_file(g.path)
     if os.path.exists(path):
         with open(path) as fh:
             return json.load(fh)
