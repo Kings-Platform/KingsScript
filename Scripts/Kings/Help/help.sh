@@ -31,6 +31,10 @@ print_core_commands() {
   printf '\nInstallers (no admin rights needed):\n'
   row "install-tabby" "Install Tabby in ~/Apps and hand Terminal off to it"
   row "install-gem <gem> [version]" "Install a Ruby gem in the user folder"
+
+  printf '\nAI:\n'
+  row "graph info|find|deps|impact|update" "Query the repo's Graphify dependency graph"
+  row "docs-check [--root DIR]" "Find broken links, anchors and orphan pages in docs"
 }
 
 # Each layer lists its own commands, under its name.

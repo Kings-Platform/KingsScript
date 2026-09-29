@@ -22,6 +22,8 @@ run_core_command() {
     slack-test) exec "$SCRIPTS_DIR/Slack/Test/slack-test.sh" "$@" ;;
     install-tabby) exec "$SCRIPTS_DIR/Installers/Tabby/install-tabby.sh" "$@" ;;
     install-gem) exec "$SCRIPTS_DIR/Installers/Gem/install-gem.sh" "$@" ;;
+    graph) exec python3 "$SCRIPTS_DIR/AI/Graph/graph.py" "$@" ;;
+    docs-check) exec python3 "$SCRIPTS_DIR/AI/DocsCheck/docs-check.py" "$@" ;;
   esac
 }
 
