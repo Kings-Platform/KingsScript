@@ -1,31 +1,19 @@
 #!/bin/bash
-# Undoes install.sh: removes the ~/.zshrc block, the kings executable and the git hook stubs,
-# and restores the previous core.hooksPath. $KINGS_HOME (logs, config, layer registry) is kept
-# unless --purge.
+# Undoes install.sh. Logs, config and layers in ~/.kingsScripts are kept unless --purge.
 
 export KINGS_CMD="uninstall"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/Scripts/Core/cache.sh"
 . "$ROOT/Scripts/Core/print.sh"
+. "$ROOT/install/zshrc.sh"
 
-ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
 HOOKS_DIR="$KINGS_HOME/git-hooks"
 
-if [ -f "$ZSHRC" ]; then
-  tmp="$(mktemp)"
-  awk -v b="# >>> kings >>>" -v e="# <<< kings <<<" '
-    $0 == b { if (blanks > 0) blanks--; skip = 1; next }
-    $0 == e { skip = 0; next }
-    skip { next }
-    $0 == "" { blanks++; next }
-    { while (blanks > 0) { print ""; blanks-- } print }
-    END { while (blanks > 0) { print ""; blanks-- } }
-  ' "$ZSHRC" > "$tmp" && cat "$tmp" > "$ZSHRC"
-  rm -f "$tmp"
-  print_info "Removed the kings block from $ZSHRC"
-fi
+# Gives git back the hooks setting it had before the install, if any.
+restore_git_hooks_path() {
+  [ "$(git config --global core.hooksPath)" = "$HOOKS_DIR" ] || return
 
-if [ "$(git config --global core.hooksPath)" = "$HOOKS_DIR" ]; then
+  local previous
   previous="$(cache_get install.previous-hookspath)"
   if [ -n "$previous" ]; then
     git config --global core.hooksPath "$previous"
@@ -35,9 +23,15 @@ if [ "$(git config --global core.hooksPath)" = "$HOOKS_DIR" ]; then
     git config --global --unset core.hooksPath
     print_info "core.hooksPath unset"
   fi
-fi
+}
+
+zshrc_remove_block
+print_info "Removed the kings block from $ZSHRC"
+
+restore_git_hooks_path
 rm -rf "$HOOKS_DIR" "$KINGS_HOME/bin"
 
+# Printed with printf, since print_* would recreate the log folder being deleted.
 if [ "$1" = "--purge" ]; then
   rm -rf "$KINGS_HOME"
   printf 'Removed %s\n' "$KINGS_HOME"
