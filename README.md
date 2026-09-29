@@ -171,7 +171,3 @@ Log line format:
 ```
 [2026-09-29 14:03:12] [acme:deploy #48213] Deploying to staging
 ```
-
-## Docs
-
-Roadmap and decisions (in Portuguese): [docs/Roadmap.md](docs/Roadmap.md).

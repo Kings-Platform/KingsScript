@@ -1,10 +1,11 @@
 # KingsScript — convenções do repo
 
-Ponto de partida: [docs/Roadmap.md](docs/Roadmap.md) (decisões e fases). Uso e contrato das camadas: [README.md](README.md).
+Uso e contrato das camadas: [README.md](README.md). Decisões e fases ficam em `docs/`, que é local e fica fora do git (o repo é feito pra poder ser público, e esses docs citam contexto privado). Se a pasta existir, `docs/Roadmap.md` é o ponto de partida.
 
 ## Código
 
-- Código, comentários e README em **inglês**. Docs de decisão em `docs/` em português.
+- Código, comentários e README em **inglês**. Docs de decisão em `docs/` (local) em português.
+- Nada commitado cita empresa, cliente ou pessoa: contexto privado só em `docs/`.
 - Shebang `#!/bin/bash` e compatível com **bash 3.2**: nada de `declare -A`, `mapfile`, `${var,,}`, `local -n`. Testar com `/bin/bash`, não com o bash do Homebrew.
 - `printf` em vez de `echo -e`.
 - Script que roda por `exec` precisa do bit de execução (`chmod +x`), inclusive nas camadas.
