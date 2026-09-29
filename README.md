@@ -23,6 +23,7 @@ or project.
   - [Checkup](#checkup)
 - [Core library](#core-library)
 - [For AI agents](#for-ai-agents)
+- [Contributing](#contributing)
 - [Author](#author)
 
 ## Requirements
@@ -177,6 +178,10 @@ Personal scripts run through `kings <command>` (or `~/.kingsScripts/bin/kings`).
 `kings help` before writing a new script; new personal scripts become `kings` commands.
 Logs: `~/.kingsScripts/logs/<date>.log`. Docs: https://github.com/Kings-Platform/KingsScript
 ```
+
+## Contributing
+
+Script structure, rules and how to test: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 </br>
 
