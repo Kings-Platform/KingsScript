@@ -17,7 +17,7 @@ never fixes, since what a broken link meant to point at is a human call.
 |---|---|
 | `--root DIR` | Folder to check |
 | `--skip PREFIX` | Link prefix that isn't validated, e.g. a path into another repo — repeatable |
-| `--no-global` | Skips `~/.claude/CLAUDE.md` and `~/.claude/agents/` — checked by default, since they cite the docs too |
+| `--no-global` | Skips the machine-wide files — `~/.claude/CLAUDE.md`, `~/.claude/agents/` and the installed plugins' skills and agents — checked by default, since they cite the docs too |
 | `-v` | Also lists every file checked |
 
 Exit codes: `1` on any problem (or a bad argument) · `0` when clean or with warnings only.
@@ -29,6 +29,7 @@ Exit codes: `1` on any problem (or a bad argument) · `0` when clean or with war
 | Root | `--root DIR` → `$KINGS_DOCS_ROOT` → the current folder |
 | Pages | `<root>/docs/`, or `<root>` itself when there's no `docs/` |
 | Also checked | `<root>/CLAUDE.md` and every `.md` under `<root>/.claude/` (skills, agents) |
+| Plugins | Skills and agents of every installed Claude Code plugin, from `~/.claude/plugins/installed_plugins.json` — reported as `plugin:skill`, since the fix goes in the marketplace's clone, never in the cache |
 | Index of a page | The closest `README.md` up the tree — a subfolder with its own README owns its subtree |
 
 Hidden folders and `node_modules/` are skipped. `ai-sessions/` folders are append-only logs, so

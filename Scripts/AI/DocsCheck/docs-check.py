@@ -2,6 +2,8 @@
 # `kings docs-check [--root DIR] [--skip PREFIX]... [--no-global] [-v]`: deterministic hygiene check of a
 # markdown docs tree. Reports, never fixes — what a broken link meant to point at is a human call.
 
+import functools
+import json
 import os
 import re
 import sys
@@ -94,6 +96,35 @@ def walk(base, exempt=frozenset()):
         yield dirpath, dirnames, names
 
 
+# Install folder of every installed Claude Code plugin, keyed by folder, valued by the plugin's
+# name — from Claude's own registry, the same folders a session loads.
+@functools.lru_cache(maxsize=None)
+def plugin_installs():
+    registry = os.path.expanduser("~/.claude/plugins/installed_plugins.json")
+    try:
+        with open(registry, encoding="utf-8") as fh:
+            plugins = json.load(fh).get("plugins", {})
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for plugin_id, installs in plugins.items():
+        for install in installs if isinstance(installs, list) else [installs]:
+            base = (install or {}).get("installPath")
+            if base:
+                out[os.path.realpath(base)] = plugin_id.split("@")[0]
+    return out
+
+
+# Skills and agents of the installed plugins.
+def plugin_md_files():
+    out = []
+    for base in plugin_installs():
+        for sub in ("skills", "agents"):
+            for d, _, names in os.walk(os.path.join(base, sub)):
+                out += [os.path.join(d, n) for n in names if n.endswith(".md")]
+    return out
+
+
 # Machine-wide Claude files: they point at the docs as much as the project's own ones do.
 def global_md_files():
     claude = os.path.expanduser("~/.claude")
@@ -101,7 +132,7 @@ def global_md_files():
            for n in names if n.endswith(".md")]
     if os.path.isfile(os.path.join(claude, "CLAUDE.md")):
         out.append(os.path.join(claude, "CLAUDE.md"))
-    return out
+    return out + plugin_md_files()
 
 
 # Every relevant .md: the docs tree, the project's CLAUDE.md, skills and agents.
@@ -118,10 +149,26 @@ def md_files(root, include_global):
     return sorted(set(out))
 
 
+# A plugin file shows as `plugin:skill` / `plugin:agent` — the cache path doesn't say where to fix
+# it (the marketplace's clone, never the cache).
+def plugin_name(path):
+    real = os.path.realpath(path)
+    for base, plugin in plugin_installs().items():
+        if not real.startswith(base + os.sep):
+            continue
+        parts = os.path.relpath(real, base).split(os.sep)
+        if parts[0] == "skills" and len(parts) >= 3:
+            return f"{plugin}:{parts[1]}"
+        if parts[0] == "agents":
+            return f"{plugin}:{os.path.splitext(parts[-1])[0]}"
+        return f"{plugin}:{'/'.join(parts)}"
+    return None
+
+
 def shown(path, root):
     if path.startswith(root + os.sep):
         return os.path.relpath(path, root)
-    return path.replace(os.path.expanduser("~"), "~")
+    return plugin_name(path) or path.replace(os.path.expanduser("~"), "~")
 
 
 # -------------------------------------------------------------------------------- anchors
@@ -239,12 +286,11 @@ def check_index(ctx):
 
 
 # Check 4: a skill citing `docs/.../Page.md` in prose, which the link check doesn't see.
-def check_skills(ctx):
+def check_skills(ctx, files):
     root = ctx["root"]
-    for dirpath, _, names in os.walk(os.path.join(root, ".claude", "skills")):
-        if "SKILL.md" not in names:
+    for f in files:
+        if os.path.basename(f) != "SKILL.md":
             continue
-        f = os.path.join(dirpath, "SKILL.md")
         for m in SKILL_REF_RE.finditer(read(f) or ""):
             if not os.path.isfile(os.path.join(root, m.group(1))):
                 ctx["problems"].append(f"SKILL     {shown(f, root)} cites {m.group(1)}"
@@ -288,7 +334,7 @@ def main():
     files = md_files(ctx["root"], opts["global"])
     check_links(ctx, files)
     check_index(ctx)
-    check_skills(ctx)
+    check_skills(ctx, files)
     print_report(ctx, files, opts["verbose"])
     sys.exit(1 if ctx["problems"] else 0)
 
