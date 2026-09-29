@@ -8,21 +8,29 @@ row() {
   printf '  %-34s %s\n' "$1" "$2"
 }
 
-printf 'Usage: kings <command> [args...]\n\nCore:\n'
-row "help" "Show this help"
-row "layer list|add|remove|create" "Manage layers"
-row "hooks on|off|status" "Toggle every layer's git hooks"
-row "checkup [--force]" "Run periodic maintenance tasks now"
-row "secret set|delete|status <NAME>" "Manage secrets in the Keychain"
+print_core_commands() {
+  printf 'Usage: kings <command> [args...]\n\nCore:\n'
+  row "help" "Show this help"
+  row "layer list|add|remove|create" "Manage layers"
+  row "hooks on|off|status" "Toggle every layer's git hooks"
+  row "checkup [--force]" "Run periodic maintenance tasks now"
+  row "secret set|delete|status <NAME>" "Manage secrets in the Keychain"
+}
 
 # Each layer lists its own commands, under its name.
-layers_list | while IFS= read -r layer; do
-  printf '\n%s (%s):\n' "$(layer_name "$layer")" "$layer"
-  if [ ! -d "$layer" ]; then
-    row "(missing)" "Folder not found; see 'kings layer remove'"
-  elif [ -x "$layer/main.sh" ]; then
-    "$layer/main.sh" help < /dev/null
-  else
-    row "(no commands)" ""
-  fi
-done
+print_layer_commands() {
+  local layer
+  layers_list | while IFS= read -r layer; do
+    printf '\n%s (%s):\n' "$(layer_name "$layer")" "$layer"
+    if [ ! -d "$layer" ]; then
+      row "(missing)" "Folder not found; see 'kings layer remove'"
+    elif [ -x "$layer/main.sh" ]; then
+      "$layer/main.sh" help < /dev/null
+    else
+      row "(no commands)" ""
+    fi
+  done
+}
+
+print_core_commands
+print_layer_commands
