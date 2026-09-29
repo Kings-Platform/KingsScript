@@ -2,7 +2,9 @@
 # Installs KingsScript on this machine. Safe to run again (after moving the repo, for example).
 #
 #   - $KINGS_HOME (~/.kingsScripts): config.env, logs/, git-hooks/, cache and layer registry
-#   - the `kings` function and the background checkup, in a marked block of ~/.zshrc
+#   - the `kings` executable in $KINGS_HOME/bin, a real file rather than a shell function, so
+#     non-interactive shells (git hooks, AI agents) can call it by its absolute path
+#   - a marked block in ~/.zshrc: bin/ on the PATH and the background checkup
 #   - global git hook stubs (core.hooksPath), which hand every hook over to the layers
 
 export KINGS_CMD="install"
@@ -12,13 +14,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
 HOOKS_DIR="$KINGS_HOME/git-hooks"
+BIN_DIR="$KINGS_HOME/bin"
 GIT_HOOKS="pre-commit prepare-commit-msg commit-msg post-commit pre-rebase post-checkout post-merge pre-push post-rewrite"
 MARK_BEGIN="# >>> kings >>>"
 MARK_END="# <<< kings <<<"
 
 print_title "Installing KingsScript"
 
-mkdir -p "$KINGS_HOME/logs" "$KINGS_HOME/backup" "$HOOKS_DIR"
+mkdir -p "$KINGS_HOME/logs" "$KINGS_HOME/backup" "$HOOKS_DIR" "$BIN_DIR"
 if [ ! -f "$KINGS_HOME/config.env" ]; then
   cp "$ROOT/install/config.example.env" "$KINGS_HOME/config.env"
   print_info "Config created: $KINGS_HOME/config.env"
@@ -26,10 +29,18 @@ fi
 
 find "$ROOT/Scripts" -name '*.sh' -exec chmod +x {} +
 
+cat > "$BIN_DIR/kings" <<WRAPPER
+#!/bin/bash
+export KINGS_HOME="$KINGS_HOME"
+exec "$ROOT/Scripts/main.sh" "\$@"
+WRAPPER
+chmod +x "$BIN_DIR/kings"
+print_info "Command: $BIN_DIR/kings"
+
 for hook in $GIT_HOOKS; do
   cat > "$HOOKS_DIR/$hook" <<STUB
 #!/bin/bash
-KINGS_HOME="$KINGS_HOME" exec "$ROOT/Scripts/main.sh" hooks run $hook "\$@"
+exec "$BIN_DIR/kings" hooks run $hook "\$@"
 STUB
   chmod +x "$HOOKS_DIR/$hook"
 done
@@ -45,8 +56,7 @@ fi
 print_info "Git hooks: $HOOKS_DIR"
 
 block="$MARK_BEGIN
-export KINGS_HOME=\"$KINGS_HOME\"
-kings() { \"$ROOT/Scripts/main.sh\" \"\$@\"; }
+export PATH=\"$BIN_DIR:\$PATH\"
 ( kings checkup > /dev/null 2>&1 & )
 $MARK_END"
 

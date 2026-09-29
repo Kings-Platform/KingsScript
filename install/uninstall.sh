@@ -1,6 +1,7 @@
 #!/bin/bash
-# Undoes install.sh: removes the ~/.zshrc block and the git hook stubs, and restores the
-# previous core.hooksPath. $KINGS_HOME (logs, config, layer registry) is kept unless --purge.
+# Undoes install.sh: removes the ~/.zshrc block, the kings executable and the git hook stubs,
+# and restores the previous core.hooksPath. $KINGS_HOME (logs, config, layer registry) is kept
+# unless --purge.
 
 export KINGS_CMD="uninstall"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -35,7 +36,7 @@ if [ "$(git config --global core.hooksPath)" = "$HOOKS_DIR" ]; then
     print_info "core.hooksPath unset"
   fi
 fi
-rm -rf "$HOOKS_DIR"
+rm -rf "$HOOKS_DIR" "$KINGS_HOME/bin"
 
 if [ "$1" = "--purge" ]; then
   rm -rf "$KINGS_HOME"
@@ -43,4 +44,4 @@ if [ "$1" = "--purge" ]; then
 else
   print_info "Kept $KINGS_HOME (use --purge to remove it)"
 fi
-printf 'KingsScript uninstalled. Open a new terminal to drop the kings function.\n'
+printf 'KingsScript uninstalled. Open a new terminal to refresh the PATH.\n'
