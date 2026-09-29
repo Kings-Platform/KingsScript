@@ -1,6 +1,7 @@
 #!/bin/bash
 # `kings git-prreview <PR>`: the PR's review comments as a markdown table, ready to paste into
-# review notes. "GitHub ID" is the comment's real id, needed to reply to it (in_reply_to).
+# review notes. "GitHub ID" is the comment's real id, needed to reply to it (in_reply_to);
+# Difficulty is left blank to be filled in while going through the review.
 
 . "$KINGS_CORE/print.sh"
 
@@ -23,15 +24,15 @@ current_repo() {
   gh repo view --json nameWithOwner --jq .nameWithOwner
 }
 
-# One row per comment: sequence, id, first 80 characters of the body (single line) and author.
+# One row per comment: sequence, id, first 80 characters of the body (single line) and reviewer.
 print_table() {
   local repo
   repo="$(current_repo)" || exit 1
 
-  printf '| ID | GitHub ID | Comment | Author | Status |\n|---|---|---|---|---|\n'
+  printf '| ID | GitHub ID | Comment | Reviewer | Difficulty | Status |\n|---|---|---|---|---|---|\n'
   gh api "repos/$repo/pulls/$PR/comments" \
     --jq '.[] | [(.id | tostring), (.body | gsub("\r?\n"; " ") | .[0:80]), .user.login] | @tsv' |
-    awk -F'\t' '{ print "| " NR " | " $1 " | " $2 " | " $3 " | pending |" }'
+    awk -F'\t' '{ print "| " NR " | " $1 " | " $2 " | " $3 " | | pending |" }'
 }
 
 validate_input
