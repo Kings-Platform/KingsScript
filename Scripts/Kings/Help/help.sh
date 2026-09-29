@@ -35,6 +35,7 @@ print_core_commands() {
   printf '\nAI:\n'
   row "graph <subcommand>" "Graphify dependency graph: info, find, deps, impact, update"
   row "docs-check [--root DIR]" "Find broken links, anchors and orphan pages in docs"
+  row "ai-update [--auto]" "Update the installed Claude Code plugins"
 
   printf '\nDesign:\n'
   row "fig-parse <file.fig> [flags]" "Extract layout, colors and text from a Figma file"

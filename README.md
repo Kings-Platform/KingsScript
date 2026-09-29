@@ -118,6 +118,7 @@ kings layer add /path/to/some-layer
 | | `install-gem <gem> [version]` | Installs a Ruby gem without admin rights |
 | [AI](Scripts/AI/) | [`graph`](Scripts/AI/Graph/) | Queries the repo's Graphify dependency graph |
 | | [`docs-check`](Scripts/AI/DocsCheck/) | Finds broken links, anchors and orphan pages in docs |
+| | [`ai-update [--auto]`](Scripts/AI/Update/ai-update.sh) | Updates the installed Claude Code plugins — pulls marketplaces that are local clones first |
 | [Design](Scripts/Design/Figma/) | `fig-parse <file.fig>` | Extracts layout, colors and text from a Figma file |
 | | `fig-check [file.fig]` | Regression check of `fig-parse` |
 
@@ -170,8 +171,12 @@ Each new terminal runs `kings checkup` in the background. `checkup.sh` registers
 checkup_task cleanup weekly "$LAYER_DIR/Scripts/Cleanup/cleanup.sh"   # daily | weekly | monthly
 ```
 
-A task runs at most once per period, counting only successful runs. The core has one:
-`log-archive` (monthly).
+A task runs at most once per period, counting only successful runs. The core has two:
+
+| Task | Period | What it does |
+|---|---|---|
+| `log-archive` | Monthly | Zips last month's logs |
+| `ai-update` | Daily | `kings ai-update --auto` — skips a marketplace clone that isn't clean and on its default branch, and notifies when a plugin was updated |
 
 ## Core library
 
