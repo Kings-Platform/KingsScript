@@ -27,6 +27,7 @@ run_core_command() {
     ai-update) exec "$SCRIPTS_DIR/AI/Update/ai-update.sh" "$@" ;;
     fig-parse) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/parse-fig.js" "$@" ;;
     fig-check) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/check.js" "$@" ;;
+    site-icon) exec "$SCRIPTS_DIR/Design/SiteIcon/site-icon.sh" "$@" ;;
   esac
 }
 

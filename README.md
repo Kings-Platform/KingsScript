@@ -42,9 +42,10 @@ Some commands need more — each one says so when it's missing:
 | `swiftformat` | `git-swiftformatstaged` |
 | Xcode | `xcode-*` |
 | `jq` | `slack-test` |
-| Python 3 | `graph`, `docs-check` |
+| Python 3 | `graph`, `docs-check`, `site-icon` |
 | Graphify | `graph` |
 | Node 20+ and `npm install --prefix Scripts/Design/Figma` | `fig-*` |
+| ImageMagick, plus Chrome or `rsvg-convert` for SVG icons | `site-icon` |
 
 ## Install
 
@@ -121,6 +122,7 @@ kings layer add /path/to/some-layer
 | | [`ai-update [--auto]`](Scripts/AI/Update/ai-update.sh) | Updates the installed Claude Code plugins — pulls marketplaces that are local clones first |
 | [Design](Scripts/Design/Figma/) | `fig-parse <file.fig>` | Extracts layout, colors and text from a Figma file |
 | | `fig-check [file.fig]` | Regression check of `fig-parse` |
+| | [`site-icon <url>`](Scripts/Design/SiteIcon/site-icon.sh) | Saves the icon a site shows in the browser tab as a transparent PNG (`--size`, `--out`, `--name`; `--list` shows the candidates, `--source` picks one) |
 
 Exit codes: `0` success · `1` error · `127` unknown command.
 
