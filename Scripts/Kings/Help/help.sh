@@ -40,6 +40,7 @@ print_core_commands() {
   printf '\nDesign:\n'
   row "fig-parse <file.fig> [flags]" "Extract layout, colors and text from a Figma file"
   row "fig-check [file.fig] [--update]" "Regression check of fig-parse against fixtures"
+  row "site-icon <url> [flags]" "Save a site's browser-tab icon as a transparent PNG"
 }
 
 # Each layer lists its own commands, under its name.
