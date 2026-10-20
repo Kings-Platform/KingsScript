@@ -25,6 +25,7 @@ run_core_command() {
     graph) exec python3 "$SCRIPTS_DIR/AI/Graph/graph.py" "$@" ;;
     docs-check) exec python3 "$SCRIPTS_DIR/AI/DocsCheck/docs-check.py" "$@" ;;
     ai-update) exec "$SCRIPTS_DIR/AI/Update/ai-update.sh" "$@" ;;
+    ai-session) exec "$SCRIPTS_DIR/AI/Session/ai-session.sh" "$@" ;;
     fig-parse) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/parse-fig.js" "$@" ;;
     fig-check) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/check.js" "$@" ;;
     site-icon) exec "$SCRIPTS_DIR/Design/SiteIcon/site-icon.sh" "$@" ;;
