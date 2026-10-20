@@ -193,7 +193,7 @@ is_loaded() {
 
 # launchd's own "last exit code" for the job: empty if it never ran, 126 when macOS blocked it.
 launchd_exit_code() {
-  launchctl print "gui/$(id -u)/$(job_label "$1")" 2> /dev/null | sed -n 's/^[[:space:]]*last exit code = //p' | head -1
+  launchctl print "gui/$(id -u)/$(job_label "$1")" 2> /dev/null | sed -n 's/^[[:space:]]*last exit code = //p' | grep -v 'never exited' | head -1
 }
 
 # True when the scripts launchd must read are in a folder macOS protects.
