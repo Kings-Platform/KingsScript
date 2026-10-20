@@ -204,8 +204,12 @@ scripts_in_protected_folder() {
   return 1
 }
 
+# A successful `check` leaves this marker: the access is granted, so `add` stops warning.
+ACCESS_MARKER="$SCHEDULE_DIR/.launchd-access-ok"
+
 warn_if_protected() {
   scripts_in_protected_folder || return 0
+  [ -f "$ACCESS_MARKER" ] && return 0
   print_warn "KingsScript lives in a folder macOS protects, so launchd can't run it until /bin/bash has Full Disk Access"
   print_warn "System Settings > Privacy & Security > Full Disk Access > add /bin/bash, then: kings schedule check $1"
 }
@@ -433,8 +437,12 @@ schedule_command_check() {
     [ -n "$code" ] && break
   done
   case "$code" in
-    0) print_success "'$1' ran under launchd (see 'kings schedule logs $1')" ;;
+    0)
+      touch "$ACCESS_MARKER"
+      print_success "'$1' ran under launchd (see 'kings schedule logs $1')"
+      ;;
     126)
+      rm -f "$ACCESS_MARKER"
       print_error "macOS blocked launchd from running the scripts (Operation not permitted)"
       warn_if_protected "$1"
       exit 1
