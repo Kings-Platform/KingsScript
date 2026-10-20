@@ -15,6 +15,7 @@ print_core_commands() {
   row "hooks on|off|status" "Toggle every layer's git hooks"
   row "checkup [--force]" "Run periodic maintenance tasks now"
   row "secret set|delete|status <NAME>" "Manage secrets in the Keychain (set prompts)"
+  row "schedule add|list|run|logs|..." "Run a script or a Claude prompt at a fixed time, via launchd"
 
   printf '\nGit:\n'
   row "git-swiftformatstaged" "Format the staged .swift files"
