@@ -14,6 +14,7 @@ run_core_command() {
     hooks) exec "$SCRIPTS_DIR/Kings/Hooks/hooks.sh" "$@" ;;
     checkup) exec "$SCRIPTS_DIR/Kings/Checkup/checkup.sh" "$@" ;;
     secret) exec "$SCRIPTS_DIR/Kings/Secret/secret.sh" "$@" ;;
+    schedule) exec "$SCRIPTS_DIR/Kings/Schedule/schedule.sh" "$@" ;;
     git-swiftformatstaged) exec "$SCRIPTS_DIR/Git/SwiftFormatStaged/swiftformat-staged.sh" "$@" ;;
     git-prreview) exec "$SCRIPTS_DIR/Git/PRReview/pr-review.sh" "$@" ;;
     git-deletebranch) exec "$SCRIPTS_DIR/Git/DeleteBranch/delete-branch.sh" "$@" ;;

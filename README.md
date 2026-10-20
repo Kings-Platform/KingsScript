@@ -21,6 +21,7 @@ or project.
 - [Layers](#layers)
   - [Git hooks](#git-hooks)
   - [Checkup](#checkup)
+  - [Schedule](#schedule)
 - [Core library](#core-library)
 - [For AI agents](#for-ai-agents)
 - [Contributing](#contributing)
@@ -104,6 +105,7 @@ kings layer add /path/to/some-layer
 | `kings hooks on \| off \| status` | Turns every layer's git hooks on or off |
 | `kings checkup [--force]` | Runs the periodic tasks now |
 | `kings secret set \| delete \| status <NAME>` | Keeps secrets in the Keychain — `set` asks for the value |
+| `kings schedule add \| list \| run \| check \| logs \| enable \| disable \| remove` | Runs a script or a Claude prompt at a fixed time of day, through launchd |
 
 **Tools:**
 
@@ -180,6 +182,33 @@ A task runs at most once per period, counting only successful runs. The core has
 |---|---|---|
 | `log-archive` | Monthly | Zips last month's logs |
 | `ai-update` | Daily | `kings ai-update --auto` — skips a marketplace clone that isn't clean and on its default branch, and notifies when a plugin was updated |
+
+### Schedule
+
+`kings checkup` runs when a terminal opens; `kings schedule` runs a job at a fixed time of day with every terminal closed, through a launchd agent per job.
+
+```bash
+kings schedule add backup --at 14:00 --script "kings some-command"                  # a shell command, no AI
+kings schedule add digest --at 15:00 --days weekdays --ai @/path/prompt.md          # a headless Claude Code prompt
+kings schedule list                    # name, time, kind, on/off, result of the last run
+kings schedule run digest              # run it now (log in $KINGS_HOME/schedules/logs/digest/)
+kings schedule check digest            # start it through launchd, as the schedule would
+```
+
+| Option | Meaning |
+|---|---|
+| `--at HH:MM` | 24h time, required |
+| `--days` | `daily` (default), `weekdays` or a list such as `mon,wed,fri` |
+| `--script <command>` / `--ai <prompt or @file>` | What runs. A prompt starting with `@` is read from that file on every run |
+| `--model`, `--permission-mode`, `--claude-args` | For `--ai`: model (default `sonnet`), Claude Code permission mode and extra flags (e.g. `--allowedTools ...`) |
+| `--workdir`, `--timeout` | Where it runs, and the limit in seconds (AI jobs default to 3600; exit 124 when hit) |
+| `--replace` | Overwrite a job with the same name |
+
+- Jobs live in `$KINGS_HOME/schedules/`, never in the repo, so a layer's private jobs stay private.
+- The agent calls `kings schedule run <name> --scheduled` with the `PATH` the job was added with. A failure shows a macOS notification; the last 30 logs per job are kept.
+- If the Mac sleeps at the scheduled time, launchd runs the job when it wakes. It can't wake the Mac: that takes `sudo pmset repeat wakeorpoweron ...`.
+- macOS blocks launchd from reading `~/Documents`, `~/Desktop` and `~/Downloads` unless `/bin/bash` has Full Disk Access (System Settings › Privacy & Security). `add` warns when KingsScript lives there; `check` proves the job starts.
+- `KINGS_LAUNCH_AGENTS` (agents folder) and `KINGS_SCHEDULE_NO_LOAD=1` (skip launchctl) exist for testing.
 
 ## Core library
 
