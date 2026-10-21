@@ -25,7 +25,7 @@ MAIN_SH="$KINGS_ROOT/Scripts/main.sh"
 KEEP_LOGS=30
 
 usage() {
-  print_error "Usage: kings schedule add <name> --at HH:MM [--days daily|weekdays|mon,wed,...] (--script <command> | --ai <prompt|@file>) [--model M] [--permission-mode P] [--claude-args '...'] [--workdir DIR] [--timeout SECONDS] [--replace]"
+  print_error "Usage: kings schedule add <name> --at HH:MM [--days daily|weekdays|mon,wed,...] (--script <command> | --ai <prompt|@file>) [--model M] [--permission-mode P] [--claude-args '...'] [--workdir DIR] [--timeout SECONDS] [--notify <command>] [--replace]"
   print_error "       kings schedule list | run <name> | check <name> | logs <name> [--list] | enable <name> | disable <name> | remove <name>"
   exit 1
 }
@@ -101,7 +101,7 @@ xml_escape() {
 # Loads a job's settings into the JOB_* variables.
 load_job() {
   JOB_KIND="" JOB_TIME="" JOB_DAYS="" JOB_COMMAND="" JOB_PROMPT="" JOB_MODEL="" JOB_PERMISSION=""
-  JOB_CLAUDE_ARGS="" JOB_WORKDIR="" JOB_TIMEOUT="" JOB_PATH="" JOB_ENABLED=""
+  JOB_CLAUDE_ARGS="" JOB_WORKDIR="" JOB_TIMEOUT="" JOB_PATH="" JOB_ENABLED="" JOB_NOTIFY=""
   . "$(job_file "$1")"
 }
 
@@ -123,6 +123,7 @@ write_job() {
     printf 'JOB_TIMEOUT=%q\n' "$JOB_TIMEOUT"
     printf 'JOB_PATH=%q\n' "$JOB_PATH"
     printf 'JOB_ENABLED=%q\n' "$JOB_ENABLED"
+    printf 'JOB_NOTIFY=%q\n' "$JOB_NOTIFY"
   } > "$file"
 }
 
@@ -222,7 +223,7 @@ describe_when() {
 # Parses `add`'s options into the JOB_* variables; NAME is the first argument.
 parse_add_args() {
   JOB_KIND="" JOB_TIME="" JOB_DAYS="daily" JOB_COMMAND="" JOB_PROMPT="" JOB_MODEL="sonnet"
-  JOB_PERMISSION="" JOB_CLAUDE_ARGS="" JOB_WORKDIR="$HOME" JOB_TIMEOUT="" JOB_PATH="$PATH" JOB_ENABLED=1
+  JOB_PERMISSION="" JOB_CLAUDE_ARGS="" JOB_WORKDIR="$HOME" JOB_TIMEOUT="" JOB_PATH="$PATH" JOB_ENABLED=1 JOB_NOTIFY=""
   REPLACE=0
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -235,6 +236,7 @@ parse_add_args() {
       --claude-args) JOB_CLAUDE_ARGS="$2"; shift 2 ;;
       --workdir) JOB_WORKDIR="$2"; shift 2 ;;
       --timeout) JOB_TIMEOUT="$2"; shift 2 ;;
+      --notify) JOB_NOTIFY="$2"; shift 2 ;;
       --replace) REPLACE=1; shift ;;
       *) usage ;;
     esac
@@ -355,6 +357,16 @@ run_job_body() {
   claude "${args[@]}"
 }
 
+# After a scheduled run that succeeded, shows the last line the job's --notify command prints as a banner.
+# The banner comes from here, not from the job: a headless Claude session can't reach Notification Center.
+notify_job_result() {
+  local message
+  [ "$scheduled" -eq 1 ] && [ -n "$JOB_NOTIFY" ] || return 0
+  message="$(cd "$JOB_WORKDIR" && PATH="$JOB_PATH" /bin/bash -c "$JOB_NOTIFY" 2> /dev/null | tail -n 1)"
+  [ -n "$message" ] && notify_banner "$JOB_NAME" "$message"
+  return 0
+}
+
 # Keeps the newest $KEEP_LOGS run logs of a job.
 prune_logs() {
   ls -1t "$(log_dir "$1")"/run-*.log 2> /dev/null | tail -n +$((KEEP_LOGS + 1)) | while IFS= read -r old; do
@@ -389,6 +401,7 @@ schedule_command_run() {
     [ "$scheduled" -eq 1 ] && notify_banner "Kings schedule" "$JOB_NAME failed (exit $status). kings schedule logs $JOB_NAME"
     exit 1
   fi
+  notify_job_result
   print_success "'$JOB_NAME' finished"
 }
 

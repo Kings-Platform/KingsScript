@@ -203,6 +203,7 @@ kings schedule check digest            # start it through launchd, as the schedu
 | `--script <command>` / `--ai <prompt or @file>` | What runs. A prompt starting with `@` is read from that file on every run |
 | `--model`, `--permission-mode`, `--claude-args` | For `--ai`: model (default `sonnet`), Claude Code permission mode and extra flags (e.g. `--allowedTools ...`) |
 | `--workdir`, `--timeout` | Where it runs, and the limit in seconds (AI jobs default to 3600; exit 124 when hit) |
+| `--notify` | A command run after a scheduled run that succeeded; the last line it prints becomes a Notification Center banner titled with the job's name. Use it instead of asking an `--ai` job to notify: a headless Claude session can't reach Notification Center |
 | `--replace` | Overwrite a job with the same name |
 
 - Jobs live in `$KINGS_HOME/schedules/`, never in the repo, so a layer's private jobs stay private.
