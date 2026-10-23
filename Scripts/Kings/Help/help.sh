@@ -43,6 +43,11 @@ print_core_commands() {
   row "fig-parse <file.fig> [flags]" "Extract layout, colors and text from a Figma file"
   row "fig-check [file.fig] [--update]" "Regression check of fig-parse against fixtures"
   row "site-icon <url> [flags]" "Save a site's browser-tab icon as a transparent PNG"
+
+  printf '\nMail:\n'
+  row "mail send --to --subject --body" "Send a Gmail message with attachments (--draft keeps it)"
+  row "mail attachments --thread ID" "Download a message's or thread's attachments (--out DIR)"
+  row "mail auth [--client JSON]|status" "Authorize the Gmail account; show its state"
 }
 
 # Each layer lists its own commands, under its name.

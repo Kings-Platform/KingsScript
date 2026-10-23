@@ -30,6 +30,7 @@ run_core_command() {
     fig-parse) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/parse-fig.js" "$@" ;;
     fig-check) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/check.js" "$@" ;;
     site-icon) exec "$SCRIPTS_DIR/Design/SiteIcon/site-icon.sh" "$@" ;;
+    mail) exec "$SCRIPTS_DIR/Mail/Gmail/mail.sh" "$@" ;;
   esac
 }
 
