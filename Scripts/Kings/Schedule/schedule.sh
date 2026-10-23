@@ -346,6 +346,8 @@ run_job_body() {
   case "$prompt" in
     @*) prompt="$(cat "${prompt#@}")" || return 1 ;;
   esac
+  # Headless Claude stops background agents 10 minutes after its last turn; 0 waits for them, and the job's own timeout is the bound.
+  export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
   local args=(-p "$prompt" --model "$JOB_MODEL")
   [ -n "$JOB_PERMISSION" ] && args+=(--permission-mode "$JOB_PERMISSION")
   if [ -n "$JOB_CLAUDE_ARGS" ]; then
