@@ -43,7 +43,7 @@ Some commands need more — each one says so when it's missing:
 | `swiftformat` | `git-swiftformatstaged` |
 | Xcode | `xcode-*` |
 | `jq` | `slack-test` |
-| Python 3 | `graph`, `docs-check`, `site-icon` |
+| Python 3 | `graph`, `docs-check`, `site-icon`, `mail` (plus a Google Cloud OAuth client, see [its README](Scripts/Mail/Gmail/)) |
 | Graphify | `graph` |
 | Node 20+ and `npm install --prefix Scripts/Design/Figma` | `fig-*` |
 | ImageMagick, plus Chrome or `rsvg-convert` for SVG icons | `site-icon` |
@@ -126,6 +126,7 @@ kings layer add /path/to/some-layer
 | [Design](Scripts/Design/Figma/) | `fig-parse <file.fig>` | Extracts layout, colors and text from a Figma file |
 | | `fig-check [file.fig]` | Regression check of `fig-parse` |
 | | [`site-icon <url>`](Scripts/Design/SiteIcon/site-icon.sh) | Saves the icon a site shows in the browser tab as a transparent PNG (`--size`, `--out`, `--name`; `--list` shows the candidates, `--source` picks one) |
+| [Mail](Scripts/Mail/Gmail/) | `mail send \| attachments \| auth \| status` | Sends Gmail messages with attachments (or leaves a draft) and downloads attachments, as the account in `config.env` — setup in its README |
 
 Exit codes: `0` success · `1` error · `127` unknown command.
 
