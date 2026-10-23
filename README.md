@@ -204,6 +204,7 @@ kings schedule check digest            # start it through launchd, as the schedu
 | `--model`, `--permission-mode`, `--claude-args` | For `--ai`: model (default `sonnet`), Claude Code permission mode and extra flags (e.g. `--allowedTools ...`) |
 | `--workdir`, `--timeout` | Where it runs, and the limit in seconds (AI jobs default to 3600; exit 124 when hit) |
 | `--notify` | A command run after a scheduled run that succeeded; the last line it prints becomes a Notification Center banner titled with the job's name. Use it instead of asking an `--ai` job to notify: a headless Claude session can't reach Notification Center |
+| `--on-start`, `--on-finish` | Commands run before and after every run (scheduled or `run`), e.g. to open and close a report page. They get `KINGS_JOB_NAME`, `KINGS_JOB_STATUS` (`running`, then `ok` or `failed`), `KINGS_JOB_EXIT` and `KINGS_JOB_LOG`. The start hook's last output line reaches the job itself and the finish hook as `KINGS_JOB_REF`. A failing hook is logged and never fails the job |
 | `--replace` | Overwrite a job with the same name |
 
 - Jobs live in `$KINGS_HOME/schedules/`, never in the repo, so a layer's private jobs stay private.
