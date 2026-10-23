@@ -8,4 +8,4 @@
 
 - Docs de decisão em `docs/` são em português; todo o resto do repo é em inglês.
 - Testar sempre com `HOME` temporário (ver CONTRIBUTING) — nunca rodar install/uninstall no `HOME` real.
-- A IA faz os commits; o Gui revisa no GitHub Desktop e faz o push.
+- A IA faz os commits, o push e abre o PR pronto; o Gui só valida e mergeia o PR.
