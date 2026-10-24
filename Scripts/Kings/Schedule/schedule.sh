@@ -353,10 +353,6 @@ run_job_body() {
   esac
   # Headless Claude stops background agents 10 minutes after its last turn; 0 waits for them, and the job's own timeout is the bound.
   export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
-  # A long-lived token (`claude setup-token`) keeps unattended runs signed in; the interactive login's
-  # OAuth session expires and can't be refreshed without a person at the machine.
-  local token
-  token="$(secret_get CLAUDE_CODE_OAUTH_TOKEN 2> /dev/null)" && export CLAUDE_CODE_OAUTH_TOKEN="$token"
   local args=(-p "$prompt" --model "$JOB_MODEL")
   [ -n "$JOB_PERMISSION" ] && args+=(--permission-mode "$JOB_PERMISSION")
   if [ -n "$JOB_CLAUDE_ARGS" ]; then
@@ -365,7 +361,21 @@ run_job_body() {
     args+=($JOB_CLAUDE_ARGS)
     set +f
   fi
-  claude "${args[@]}"
+  # The interactive login is tried first: only it reaches the claude.ai connectors (Gmail, Calendar, Notion).
+  # Its OAuth session can expire with nobody at the machine; then the run is retried once with the long-lived
+  # token (`claude setup-token`), which signs in but has no connectors.
+  local output status token
+  output="$(mktemp)"
+  claude "${args[@]}" 2>&1 | tee "$output"
+  status=${PIPESTATUS[0]}
+  if [ "$status" -ne 0 ] && grep -q "Failed to authenticate" "$output" \
+    && token="$(secret_get CLAUDE_CODE_OAUTH_TOKEN 2> /dev/null)"; then
+    echo "Login expired; retrying with CLAUDE_CODE_OAUTH_TOKEN (no claude.ai connectors in this run)"
+    CLAUDE_CODE_OAUTH_TOKEN="$token" claude "${args[@]}"
+    status=$?
+  fi
+  rm -f "$output"
+  return "$status"
 }
 
 # After a scheduled run that succeeded, shows the last line the job's --notify command prints as a banner.
