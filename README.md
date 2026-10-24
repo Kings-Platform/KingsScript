@@ -209,6 +209,7 @@ kings schedule check digest            # start it through launchd, as the schedu
 
 - Jobs live in `$KINGS_HOME/schedules/`, never in the repo, so a layer's private jobs stay private.
 - The agent calls `kings schedule run <name> --scheduled` with the `PATH` the job was added with. A failure shows a macOS notification; the last 30 logs per job are kept.
+- `--ai` jobs sign in with the secret `CLAUDE_CODE_OAUTH_TOKEN` when it is set (`claude setup-token`, then `kings secret set CLAUDE_CODE_OAUTH_TOKEN`). Without it they use the interactive login, whose OAuth session can expire while nobody is at the machine and fail the run at start.
 - If the Mac sleeps at the scheduled time, launchd runs the job when it wakes. It can't wake the Mac: that takes `sudo pmset repeat wakeorpoweron ...`.
 - macOS blocks launchd from reading `~/Documents`, `~/Desktop` and `~/Downloads` unless `/bin/bash` has Full Disk Access (System Settings › Privacy & Security). `add` warns when KingsScript lives there; `check` proves the job starts.
 - `KINGS_LAUNCH_AGENTS` (agents folder) and `KINGS_SCHEDULE_NO_LOAD=1` (skip launchctl) exist for testing.

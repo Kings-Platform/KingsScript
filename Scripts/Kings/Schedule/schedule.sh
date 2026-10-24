@@ -17,6 +17,7 @@
 SCHEDULE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCHEDULE_SCRIPT_DIR/../../Core/print.sh"
 . "$SCHEDULE_SCRIPT_DIR/../../Core/notify.sh"
+. "$SCHEDULE_SCRIPT_DIR/../../Core/secrets.sh"
 
 SCHEDULE_DIR="$KINGS_HOME/schedules"
 AGENTS_DIR="${KINGS_LAUNCH_AGENTS:-$HOME/Library/LaunchAgents}"
@@ -352,6 +353,10 @@ run_job_body() {
   esac
   # Headless Claude stops background agents 10 minutes after its last turn; 0 waits for them, and the job's own timeout is the bound.
   export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
+  # A long-lived token (`claude setup-token`) keeps unattended runs signed in; the interactive login's
+  # OAuth session expires and can't be refreshed without a person at the machine.
+  local token
+  token="$(secret_get CLAUDE_CODE_OAUTH_TOKEN 2> /dev/null)" && export CLAUDE_CODE_OAUTH_TOKEN="$token"
   local args=(-p "$prompt" --model "$JOB_MODEL")
   [ -n "$JOB_PERMISSION" ] && args+=(--permission-mode "$JOB_PERMISSION")
   if [ -n "$JOB_CLAUDE_ARGS" ]; then
