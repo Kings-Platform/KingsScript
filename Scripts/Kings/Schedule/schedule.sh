@@ -17,6 +17,7 @@
 SCHEDULE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCHEDULE_SCRIPT_DIR/../../Core/print.sh"
 . "$SCHEDULE_SCRIPT_DIR/../../Core/notify.sh"
+. "$SCHEDULE_SCRIPT_DIR/../../Core/secrets.sh"
 
 SCHEDULE_DIR="$KINGS_HOME/schedules"
 AGENTS_DIR="${KINGS_LAUNCH_AGENTS:-$HOME/Library/LaunchAgents}"
@@ -360,7 +361,21 @@ run_job_body() {
     args+=($JOB_CLAUDE_ARGS)
     set +f
   fi
-  claude "${args[@]}"
+  # The interactive login is tried first: only it reaches the claude.ai connectors (Gmail, Calendar, Notion).
+  # Its OAuth session can expire with nobody at the machine; then the run is retried once with the long-lived
+  # token (`claude setup-token`), which signs in but has no connectors.
+  local output status token
+  output="$(mktemp)"
+  claude "${args[@]}" 2>&1 | tee "$output"
+  status=${PIPESTATUS[0]}
+  if [ "$status" -ne 0 ] && grep -q "Failed to authenticate" "$output" \
+    && token="$(secret_get CLAUDE_CODE_OAUTH_TOKEN 2> /dev/null)"; then
+    echo "Login expired; retrying with CLAUDE_CODE_OAUTH_TOKEN (no claude.ai connectors in this run)"
+    CLAUDE_CODE_OAUTH_TOKEN="$token" claude "${args[@]}"
+    status=$?
+  fi
+  rm -f "$output"
+  return "$status"
 }
 
 # After a scheduled run that succeeded, shows the last line the job's --notify command prints as a banner.
