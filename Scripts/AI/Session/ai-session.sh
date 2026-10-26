@@ -46,8 +46,11 @@ refuse_existing() {
 }
 
 start_session() {
-  local cmd="claude --remote-control \"$NAME\""
-  [ -n "$RESUME" ] && cmd="claude --resume \"$RESUME\" --remote-control \"$NAME\""
+  # Long-lived sessions never update themselves: a running session that sees a newer version reinstalls the
+  # binary in place on every check, which breaks scheduled jobs running at that moment. `claude-update` updates
+  # once a day instead.
+  local cmd="env DISABLE_AUTOUPDATER=1 claude --remote-control \"$NAME\""
+  [ -n "$RESUME" ] && cmd="env DISABLE_AUTOUPDATER=1 claude --resume \"$RESUME\" --remote-control \"$NAME\""
   tmux new-session -d -s "$(session_id)" -c "$DIR" "$cmd"
 }
 
