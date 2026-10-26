@@ -122,7 +122,7 @@ kings layer add /path/to/some-layer
 | [AI](Scripts/AI/) | [`graph`](Scripts/AI/Graph/) | Queries the repo's Graphify dependency graph |
 | | [`docs-check`](Scripts/AI/DocsCheck/) | Finds broken links, anchors and orphan pages in docs |
 | | [`ai-update [--auto]`](Scripts/AI/Update/ai-update.sh) | Updates the installed Claude Code plugins — pulls marketplaces that are local clones first |
-| | [`ai-session <name> [--dir DIR] [--resume ID]`](Scripts/AI/Session/ai-session.sh) | Starts a Claude Code session in a detached tmux session with Remote Control on (new, or `--resume` an existing one); refuses a name already in use |
+| | [`ai-session <name> [--dir DIR] [--resume ID]`](Scripts/AI/Session/ai-session.sh) | Starts a Claude Code session in a detached tmux session with Remote Control on (new, or `--resume` an existing one); refuses a name already in use. Auto-update is off in these sessions (`DISABLE_AUTOUPDATER=1`): a long-lived session reinstalls the binary on every check, which breaks scheduled jobs; update once a day instead |
 | [Design](Scripts/Design/Figma/) | `fig-parse <file.fig>` | Extracts layout, colors and text from a Figma file |
 | | `fig-check [file.fig]` | Regression check of `fig-parse` |
 | | [`site-icon <url>`](Scripts/Design/SiteIcon/site-icon.sh) | Saves the icon a site shows in the browser tab as a transparent PNG (`--size`, `--out`, `--name`; `--list` shows the candidates, `--source` picks one) |
