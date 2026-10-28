@@ -364,23 +364,22 @@ run_job_body() {
   # The interactive login is tried first: only it reaches the claude.ai connectors (Gmail, Calendar, Notion).
   # Its OAuth session can expire with nobody at the machine; then the run is retried once with the long-lived
   # token (`claude setup-token`), which signs in but has no connectors.
-  local output status token frozen claude_bin=claude
+  local output status token
   output="$(mktemp)"
-  # Run from a copy of the binary: the auto-updater of other Claude sessions reinstalls it in place, and a
-  # long run whose executable is replaced mid-way loses its macOS file permissions ("Operation not permitted").
-  frozen="$(mktemp -d)"
-  if cp "$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$(command -v claude)")" "$frozen/claude" 2> /dev/null; then
-    claude_bin="$frozen/claude"
-  fi
-  "$claude_bin" "${args[@]}" 2>&1 | tee "$output"
+  # Run from the installed binary, never a copy: macOS keys the ~/Documents permission to the executable's path,
+  # so a copy at a new path waits on a permission prompt nobody answers. The job itself never updates claude
+  # (DISABLE_AUTOUPDATER): an update replaces the binary in place, and a run whose executable is replaced
+  # mid-way loses that permission ("Operation not permitted"). `claude-update` updates once a day instead.
+  export DISABLE_AUTOUPDATER=1
+  claude "${args[@]}" 2>&1 | tee "$output"
   status=${PIPESTATUS[0]}
   if [ "$status" -ne 0 ] && grep -q "Failed to authenticate" "$output" \
     && token="$(secret_get CLAUDE_CODE_OAUTH_TOKEN 2> /dev/null)"; then
     echo "Login expired; retrying with CLAUDE_CODE_OAUTH_TOKEN (no claude.ai connectors in this run)"
-    CLAUDE_CODE_OAUTH_TOKEN="$token" "$claude_bin" "${args[@]}"
+    CLAUDE_CODE_OAUTH_TOKEN="$token" claude "${args[@]}"
     status=$?
   fi
-  rm -rf "$output" "$frozen"
+  rm -f "$output"
   return "$status"
 }
 
