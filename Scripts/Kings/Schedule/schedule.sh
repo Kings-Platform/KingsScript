@@ -24,6 +24,7 @@ AGENTS_DIR="${KINGS_LAUNCH_AGENTS:-$HOME/Library/LaunchAgents}"
 LABEL_PREFIX="com.kings.schedule"
 MAIN_SH="$KINGS_ROOT/Scripts/main.sh"
 KEEP_LOGS=30
+RETRY_DELAY="${KINGS_SCHEDULE_RETRY_DELAY:-300}"
 
 usage() {
   print_error "Usage: kings schedule add <name> --at HH:MM [--days daily|weekdays|mon,wed,...] (--script <command> | --ai <prompt|@file>) [--model M] [--permission-mode P] [--claude-args '...'] [--workdir DIR] [--timeout SECONDS] [--notify <command>] [--on-start <command>] [--on-finish <command>] [--replace]"
@@ -434,6 +435,17 @@ schedule_command_run() {
     run_with_timeout "${JOB_TIMEOUT:-0}" run_job_body
   } > "$logfile" 2>&1
   status=$?
+  # Most scheduled failures are a service down for a moment (an API's 502), so the run is tried once more after
+  # a pause. Not after a timeout, which would hold the job for another full timeout.
+  if [ "$status" -ne 0 ] && [ "$status" -ne 124 ] && [ "$scheduled" -eq 1 ]; then
+    {
+      printf '== failed (exit %s); retrying in %ss\n' "$status" "$RETRY_DELAY"
+      sleep "$RETRY_DELAY"
+      printf '== retry %s\n' "$(date '+%Y-%m-%d %H:%M:%S')"
+      run_with_timeout "${JOB_TIMEOUT:-0}" run_job_body
+    } >> "$logfile" 2>&1
+    status=$?
+  fi
   run_job_hook "$JOB_ON_FINISH" "$([ "$status" -eq 0 ] && printf ok || printf failed)" "$status" > /dev/null
   record_result "$status" "$started" "$logfile"
   prune_logs "$JOB_NAME"
