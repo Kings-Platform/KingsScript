@@ -75,7 +75,7 @@ Deleting a `.words.json` transcribes that clip again.
 |---|---|
 | Frame | 1080×1920, center crop of the source, 30 fps |
 | Video | H.264 high, CRF 20 |
-| Audio | AAC 160 kbps, loudness normalized to −15 LUFS |
+| Audio | AAC 160 kbps: 80 Hz high-pass and a mild FFT denoise, then one fixed gain to −16 LUFS with a peak limiter — no dynamic normalization, which would lift the hiss in the pauses |
 | Fast-forward | Same picture pipeline, audio silenced, no captions |
 | Captions | Up to two lines per block, white bold with black outline, lower third; a block ends at a pause over 0.8 s or a sentence end, and stays up across pauses under 0.6 s |
 
