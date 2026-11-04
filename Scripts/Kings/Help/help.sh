@@ -48,6 +48,9 @@ print_core_commands() {
   row "mail send --to --subject --body" "Send a Gmail message with attachments (--draft keeps it)"
   row "mail attachments --thread ID" "Download a message's or thread's attachments (--out DIR)"
   row "mail auth [--client JSON]|status" "Authorize the Gmail account; show its state"
+
+  printf '\nMedia:\n'
+  row "video-edit <inputs>... --name N" "Join clips, speed up 1.25x and burn two-line captions"
 }
 
 # Each layer lists its own commands, under its name.

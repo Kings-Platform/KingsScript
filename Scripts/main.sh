@@ -31,6 +31,7 @@ run_core_command() {
     fig-check) exec node --max-old-space-size=8192 "$SCRIPTS_DIR/Design/Figma/check.js" "$@" ;;
     site-icon) exec "$SCRIPTS_DIR/Design/SiteIcon/site-icon.sh" "$@" ;;
     mail) exec "$SCRIPTS_DIR/Mail/Gmail/mail.sh" "$@" ;;
+    video-edit) exec "$SCRIPTS_DIR/Media/Video/video-edit.sh" "$@" ;;
   esac
 }
 

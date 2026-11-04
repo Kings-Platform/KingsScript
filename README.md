@@ -47,6 +47,7 @@ Some commands need more — each one says so when it's missing:
 | Graphify | `graph` |
 | Node 20+ and `npm install --prefix Scripts/Design/Figma` | `fig-*` |
 | ImageMagick, plus Chrome or `rsvg-convert` for SVG icons | `site-icon` |
+| `ffmpeg`, Python 3 on Apple silicon (MLX Whisper) | `video-edit` |
 
 ## Install
 
@@ -127,6 +128,7 @@ kings layer add /path/to/some-layer
 | | `fig-check [file.fig]` | Regression check of `fig-parse` |
 | | [`site-icon <url>`](Scripts/Design/SiteIcon/site-icon.sh) | Saves the icon a site shows in the browser tab as a transparent PNG (`--size`, `--out`, `--name`; `--list` shows the candidates, `--source` picks one) |
 | [Mail](Scripts/Mail/Gmail/) | `mail send \| attachments \| auth \| status` | Sends Gmail messages with attachments (or leaves a draft) and downloads attachments, as the account in `config.env` — setup in its README |
+| [Media](Scripts/Media/Video/) | `video-edit <inputs>... --name N` | Joins clips in recording order, speeds them up (1.25x) and burns two-line captions transcribed locally — vertical 1080×1920 for Stories and Reels |
 
 Exit codes: `0` success · `1` error · `127` unknown command.
 
