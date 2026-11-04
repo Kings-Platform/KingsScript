@@ -50,7 +50,7 @@ print_core_commands() {
   row "mail auth [--client JSON]|status" "Authorize the Gmail account; show its state"
 
   printf '\nMedia:\n'
-  row "video-edit <inputs>... --name N" "Join clips, speed up 1.25x and burn two-line captions"
+  row "video-edit <inputs>... --name N" "Join clips, speed up, caption; fast-forward, mute, split"
 }
 
 # Each layer lists its own commands, under its name.
