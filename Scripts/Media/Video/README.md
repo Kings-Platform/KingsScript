@@ -15,13 +15,17 @@ be split into parts that fit a platform's length limit.
 ## Usage
 
 ```bash
-# Files, folders or Samsung Quick Share links, in any order — clips are sorted by recording time
+# Files, folders, Samsung Quick Share links or shared OneDrive folders — clips are sorted by recording time
 kings video-edit ~/Downloads/clip1.mp4 ~/Downloads/clip2.mp4 --name Trip
 kings video-edit https://quickshare.samsungcloud.com/AbC123 --name Trip --preview
 
 # Fast-forward a walk in clip 1 and split into parts of up to a minute (Stories)
 kings video-edit chalet.mp4 --name Chalet --fast 1:0:12-0:40x6 --max-length 60
 ```
+
+A shared OneDrive (personal) folder is read without signing in, through the anonymous token the
+OneDrive web page itself uses for visitors — undocumented, so it may change. OneDrive serves each
+connection at well under 1 MB/s, so files come down as 16 parallel byte ranges.
 
 To turn one download into several videos, list it once and pass the files from its `.work/raw/`
 to separate projects — their transcripts are reused, not redone.
@@ -44,6 +48,7 @@ The first run creates a virtualenv in `~/.kingsScripts/venvs/video` and download
 | `--mute` | No audio and no captions — for footage that gets music when posted (combine with `--speed 1` to keep the real pace) |
 | `--fast CLIP:START-END[xF]` | Fast-forwards that stretch of clip number `CLIP` (from 1, as `--list` numbers them) at `F`x, default 4; silent and without captions. Times in source seconds or `m:ss`. Repeatable |
 | `--max-length S` | Splits the result into `<name>-partN.mp4` (replacing `<name>.mp4`) of similar length, none over `S` seconds, each cut in a pause before a caption block |
+| `--only PATTERN` | From a OneDrive folder, downloads only the files whose name matches (`20261104_22*`); repeatable |
 | `--list` | Only prints the clips in order, with recording date and length |
 | `--transcribe-only` | Stop after writing the transcripts, to fix them before the first render |
 | `--preview` | Also write a 720p copy under 30 MB |
@@ -75,7 +80,7 @@ Deleting a `.words.json` transcribes that clip again.
 |---|---|
 | Frame | 1080×1920, center crop of the source, 30 fps |
 | Video | H.264 high, CRF 20 |
-| Audio | AAC 160 kbps, loudness normalized to −15 LUFS |
+| Audio | AAC 160 kbps: 80 Hz high-pass and a mild FFT denoise, then one fixed gain to −16 LUFS with a peak limiter — no dynamic normalization, which would lift the hiss in the pauses |
 | Fast-forward | Same picture pipeline, audio silenced, no captions |
 | Captions | Up to two lines per block, white bold with black outline, lower third; a block ends at a pause over 0.8 s or a sentence end, and stays up across pauses under 0.6 s |
 

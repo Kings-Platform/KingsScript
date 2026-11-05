@@ -8,6 +8,8 @@ Called by video-edit.sh inside its virtualenv. Every step caches its result in t
 the same command to render again without transcribing.
 """
 import argparse
+import base64
+import fnmatch
 import json
 import os
 import re
@@ -36,6 +38,9 @@ BREAK_GAP = 0.8
 HOLD_GAP = 0.6
 PREVIEW_LIMIT = 30 * 1024 * 1024
 FAST_DEFAULT = 4.0
+TARGET_LUFS = -16.0
+# Rumble cut and a mild spectral denoise, applied before the gain so the hiss isn't amplified.
+AUDIO_CLEAN = "highpass=f=80,afftdn=nr=12:nf=-40:tn=1"
 
 
 def log(msg):
@@ -103,10 +108,58 @@ def download_quickshare(url, raw):
     return files
 
 
-def collect_inputs(inputs, raw):
+def curl_json(args):
+    return json.loads(subprocess.run(["curl", "-sS", *args], capture_output=True, text=True).stdout or "{}")
+
+
+# Shared OneDrive (personal) links answer the official API only when signed in; the anonymous
+# "Badger" token is what onedrive.live.com itself uses to show a shared folder to visitors.
+def download_onedrive(url, raw, only):
+    token = curl_json(["-X", "POST", "https://api-badgerp.svc.ms/v1.0/token", "-H", "Content-Type: application/json",
+                       "-d", '{"appId":"5cbed6ac-a083-4e14-b191-b4ba07653de2"}']).get("token")
+    share = "u!" + base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+    item = curl_json(["-H", f"Authorization: Badger {token}", "-H", "Prefer: autoredeem",
+                      f"https://my.microsoftpersonalcontent.com/_api/v2.0/shares/{share}/driveitem"
+                      "?$expand=children($select=name,size,file,@content.downloadUrl)"])
+    if "error" in item:
+        sys.exit(f"Could not read {url}: {item['error'].get('message')}")
+    entries = item.get("children") or [item]
+    videos = [e for e in entries if Path(e["name"]).suffix.lower() in VIDEO_EXT]
+    if only:
+        videos = [e for e in videos if any(fnmatch.fnmatch(e["name"], pat) for pat in only)]
+    files = []
+    for e in videos:
+        dest = raw / e["name"]
+        if not dest.exists() or dest.stat().st_size != e.get("size"):
+            log(f"Downloading {e['name']} ({e.get('size', 0) / 1e6:.0f} MB)")
+            download_ranges(e["@content.downloadUrl"], e["size"], dest)
+        files.append(dest)
+    return files
+
+
+# OneDrive caps each connection at ~0.5 MB/s, so big files come down as parallel byte ranges.
+def download_ranges(url, size, dest, parts=16):
+    step = -(-size // parts)
+    procs, chunks = [], []
+    for k in range(parts):
+        chunk = dest.with_name(f"{dest.name}.part{k}")
+        a, b = k * step, min((k + 1) * step, size) - 1
+        procs.append(subprocess.Popen(["curl", "-sSL", "-r", f"{a}-{b}", "-o", str(chunk), url]))
+        chunks.append(chunk)
+    if any(p.wait() for p in procs):
+        sys.exit(f"Download of {dest.name} failed")
+    with open(dest, "wb") as out:
+        for chunk in chunks:
+            out.write(chunk.read_bytes())
+            chunk.unlink()
+
+
+def collect_inputs(inputs, raw, only):
     files = []
     for item in inputs:
-        if item.startswith("http"):
+        if "1drv.ms" in item or "onedrive.live.com" in item:
+            files += download_onedrive(item, raw, only)
+        elif item.startswith("http"):
             files += download_quickshare(item, raw)
         elif Path(item).is_dir():
             files += [p for p in Path(item).iterdir() if p.suffix.lower() in VIDEO_EXT]
@@ -298,36 +351,54 @@ def atempo(factor):
     return ",".join(steps + [f"atempo={factor:.4f}"])
 
 
+def audio_graph(pieces):
+    """Filter lines that end in [ac]: every piece trimmed, sped up and joined."""
+    fc, labels = [], []
+    for i, clip_pieces in enumerate(pieces):
+        fc.append(f"[{i}:a]asplit={len(clip_pieces)}" + "".join(f"[as{i}_{j}]" for j in range(len(clip_pieces))))
+        for j, (a, b, sp, audible, _) in enumerate(clip_pieces):
+            # Fast-forwarded stretches play silent: sped-up voices only distract.
+            silence = "" if audible else ",volume=0"
+            fc.append(f"[as{i}_{j}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS,"
+                      f"{atempo(sp)}{silence},aresample=48000[a{i}_{j}]")
+            labels.append(f"[a{i}_{j}]")
+    fc.append("".join(labels) + f"concat=n={len(labels)}:v=0:a=1[ac]")
+    return fc
+
+
+def loudness(inputs, pieces):
+    """Integrated loudness (LUFS) of the cleaned voice track, measured in an audio-only pass."""
+    fc = audio_graph(pieces) + [f"[ac]{AUDIO_CLEAN},ebur128[m]"]
+    err = subprocess.run(["ffmpeg", "-nostats", *inputs, "-filter_complex", ";".join(fc), "-map", "[m]",
+                          "-f", "null", "-"], capture_output=True, text=True).stderr
+    found = re.findall(r"^\s+I:\s+(-?[\d.]+) LUFS", err, re.M)
+    return float(found[-1]) if found else TARGET_LUFS
+
+
 def render(clips, pieces, track, total, mute, out):
     fc, labels = [], []
     for i, clip_pieces in enumerate(pieces):
         k = len(clip_pieces)
         fc.append(f"[{i}:v]split={k}" + "".join(f"[vs{i}_{j}]" for j in range(k)))
-        if not mute:
-            fc.append(f"[{i}:a]asplit={k}" + "".join(f"[as{i}_{j}]" for j in range(k)))
         for j, (a, b, sp, audible, _) in enumerate(clip_pieces):
             fc.append(f"[vs{i}_{j}]trim=start={a:.3f}:end={b:.3f},setpts=(PTS-STARTPTS)/{sp},fps={FPS},"
                       f"crop='min(iw,ih*9/16)':ih,scale={W}:{H}:flags=lanczos,setsar=1[v{i}_{j}]")
             labels.append(f"[v{i}_{j}]")
-            if not mute:
-                # Fast-forwarded stretches play silent: sped-up voices only distract.
-                silence = "" if audible else ",volume=0"
-                fc.append(f"[as{i}_{j}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS,"
-                          f"{atempo(sp)}{silence},aresample=48000[a{i}_{j}]")
-                labels.append(f"[a{i}_{j}]")
-    n = len(labels) // (1 if mute else 2)
-    fc.append("".join(labels) + f"concat=n={n}:v=1:a={0 if mute else 1}" + ("[vc]" if mute else "[vc][ac]"))
+    fc.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=0[vc]")
     if track:
         fc.append(f"[{len(clips)}:v]format=rgba,fps={FPS}[cap];[vc][cap]overlay=0:0:eof_action=pass,format=yuv420p[vout]")
     else:
         fc.append("[vc]format=yuv420p[vout]")
-    maps = ["-map", "[vout]"]
-    audio = ["-an"]
+    inputs = [arg for c in clips for arg in ("-i", str(c))]
+    maps, audio = ["-map", "[vout]"], ["-an"]
     if not mute:
-        fc.append("[ac]loudnorm=I=-15:TP=-1.5:LRA=11,aresample=48000[aout]")
+        # One fixed gain plus a peak limiter, not loudnorm's dynamic mode: that one raises the
+        # pauses too, and on quiet smart-glasses audio it turned the hiss up by ~20 dB.
+        gain = TARGET_LUFS - loudness(inputs, pieces)
+        fc += audio_graph(pieces)
+        fc.append(f"[ac]{AUDIO_CLEAN},volume={gain:.2f}dB,alimiter=limit=0.84:level=false,aresample=48000[aout]")
         maps += ["-map", "[aout]"]
         audio = ["-c:a", "aac", "-b:a", "160k"]
-    inputs = [arg for c in clips for arg in ("-i", str(c))]
     if track:
         inputs += ["-f", "concat", "-safe", "0", "-i", str(track)]
     log(f"Rendering {out.name} ({clock(total)})")
@@ -367,7 +438,7 @@ def split(out, total, points, mute):
 # Small enough to send through chat apps and upload limits.
 def preview(out, mute):
     dest = out.with_name(f"{out.stem}-preview.mp4")
-    audio = ["-an"] if mute else ["-c:a", "aac", "-b:a", "96k"]
+    audio = ["-an"] if mute else ["-c:a", "aac", "-b:a", "128k"]
     for crf in (26, 30, 34):
         run(["ffmpeg", "-v", "error", "-y", "-i", str(out), "-vf", "scale=720:1280:flags=lanczos",
              "-c:v", "libx264", "-preset", "medium", "-crf", str(crf), *audio,
@@ -389,6 +460,8 @@ def main():
     ap.add_argument("--fast", action="append", default=[], metavar="CLIP:START-END[xF]",
                     help="fast-forward a stretch, silent and without captions; repeatable")
     ap.add_argument("--max-length", type=float, help="also split into parts of at most this many seconds")
+    ap.add_argument("--only", action="append", default=[], metavar="PATTERN",
+                    help="from a OneDrive folder, download only files matching this name pattern; repeatable")
     ap.add_argument("--list", action="store_true", help="only list the clips with recording time and length")
     ap.add_argument("--transcribe-only", action="store_true", help="stop after writing the .words.json files")
     ap.add_argument("--preview", action="store_true", help="also write a 720p copy under 30 MB")
@@ -402,7 +475,7 @@ def main():
 
     # Without inputs, the project's previous clip list is reused (re-render after fixing words).
     if args.inputs:
-        clips = collect_inputs(args.inputs, raw)
+        clips = collect_inputs(args.inputs, raw, args.only)
         clips_file.write_text(json.dumps([str(c) for c in clips], indent=2))
     elif clips_file.exists():
         clips = [Path(c) for c in json.loads(clips_file.read_text())]
