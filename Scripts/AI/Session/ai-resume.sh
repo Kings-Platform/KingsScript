@@ -5,6 +5,7 @@
 # session to a new id.
 # --restart also restarts the ones still running but idle — a session that lost its sign-in
 # stays alive with Remote Control off until it restarts. `--forget <name>` drops one for good.
+# With KINGS_AI_SESSION_SOURCE set, the list comes from that source (see registry.sh).
 
 . "$KINGS_CORE/print.sh"
 . "$(dirname "${BASH_SOURCE[0]}")/registry.sh"
@@ -36,12 +37,11 @@ require_tools() {
 }
 
 forget_session() {
-  registry_list | awk -F '\t' -v n="$FORGET" '$1 == n || $2 == n { found = 1 } END { exit !found }' \
-    || { print_error "No recorded session named '$FORGET'"; exit 1; }
-  local tmux_name
-  tmux_name="$(registry_list | awk -F '\t' -v n="$FORGET" '$1 == n || $2 == n { print $1; exit }')"
-  registry_unset "$tmux_name"
-  print_success "Forgot '$FORGET'"
+  local title
+  title="$(registry_list | awk -F '\t' -v n="$FORGET" '$1 == n || $2 == n { print $2; exit }')"
+  [ -n "$title" ] || { print_error "No recorded session named '$FORGET'"; exit 1; }
+  registry_forget "$title" || { print_error "The session source couldn't forget '$title'"; exit 1; }
+  print_success "Forgot '$title'"
 }
 
 # A name given on the command line matches the tmux name or the Remote Control title.
@@ -80,16 +80,26 @@ resume_one() {
     live_id="$([ -n "$file" ] && json_field "$file" sessionId)"
     if [ -n "$live_id" ] && [ "$live_id" != "$id" ]; then
       id="$live_id"
-      registry_set "$tmux_name" "$title" "$dir" "$id"
+      registry_set "$title" "$dir" "$id"
     fi
-    [ "$RESTART" -eq 1 ] || { print_info "$title: already running"; return 0; }
+    if [ "$RESTART" -ne 1 ]; then
+      print_info "$title: already running"
+      registry_result "$title" running
+      return 0
+    fi
     if [ -z "$file" ] || [ "$(json_field "$file" status)" != "idle" ]; then
       print_warn "$title: busy or not a Claude session — left running"
+      registry_result "$title" busy
       return 0
     fi
     tmux kill-session -t "=$tmux_name"
   fi
-  "$AI_SESSION" "$title" --dir "$dir" --resume "$id" > /dev/null
+  # No id yet: a session added straight to the source starts as a new conversation.
+  if [ -n "$id" ]; then
+    "$AI_SESSION" "$title" --dir "$dir" --resume "$id" > /dev/null
+  else
+    "$AI_SESSION" "$title" --dir "$dir" > /dev/null
+  fi && registry_result "$title" resumed || registry_result "$title" failed
 }
 
 resume_all() {
