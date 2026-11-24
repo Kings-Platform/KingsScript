@@ -106,7 +106,7 @@ kings layer add /path/to/some-layer
 | `kings hooks on \| off \| status` | Turns every layer's git hooks on or off |
 | `kings checkup [--force]` | Runs the periodic tasks now |
 | `kings secret set \| delete \| status <NAME>` | Keeps secrets in the Keychain — `set` asks for the value |
-| `kings schedule add \| list \| run \| check \| logs \| enable \| disable \| remove` | Runs a script or a Claude prompt at a fixed time of day, through launchd |
+| `kings schedule add \| list \| run \| check \| logs \| enable \| disable \| remove \| sync \| export` | Runs a script or a Claude prompt at a fixed time of day (or every N minutes), through launchd; `sync` takes the jobs from an outside source |
 
 **Tools:**
 
@@ -196,12 +196,15 @@ kings schedule add backup --at 14:00 --script "kings some-command"              
 kings schedule add digest --at 15:00 --days weekdays --ai @/path/prompt.md          # a headless Claude Code prompt
 kings schedule list                    # name, time, kind, on/off, result of the last run
 kings schedule run digest              # run it now (log in $KINGS_HOME/schedules/logs/digest/)
-kings schedule check digest            # start it through launchd, as the schedule would
+kings schedule check digest            # start it through launchd, as the schedule would (a real run)
+kings schedule sync --dry-run          # what syncing with KINGS_SCHEDULE_SOURCE would change
+kings schedule export                  # an `add` line per job, to recreate them elsewhere
 ```
 
 | Option | Meaning |
 |---|---|
-| `--at HH:MM` | 24h time, required |
+| `--at HH:MM` | 24h time |
+| `--every MINUTES` | Instead of `--at`: run every N minutes (launchd `StartInterval`); `--days` doesn't apply |
 | `--days` | `daily` (default), `weekdays` or a list such as `mon,wed,fri` |
 | `--script <command>` / `--ai <prompt or @file>` | What runs. A prompt starting with `@` is read from that file on every run |
 | `--model`, `--permission-mode`, `--claude-args` | For `--ai`: model (default `sonnet`), Claude Code permission mode and extra flags (e.g. `--allowedTools ...`) |
@@ -217,6 +220,15 @@ kings schedule check digest            # start it through launchd, as the schedu
 - `--ai` jobs use the interactive login, the only one that reaches the claude.ai connectors (Gmail, Calendar, Notion). Its OAuth session can expire while nobody is at the machine; the run then fails at start and is retried once with the secret `CLAUDE_CODE_OAUTH_TOKEN` when it is set (`claude setup-token`, then `kings secret set CLAUDE_CODE_OAUTH_TOKEN`), which signs in but has no connectors.
 - If the Mac sleeps at the scheduled time, launchd runs the job when it wakes. It can't wake the Mac: that takes `sudo pmset repeat wakeorpoweron ...`.
 - macOS blocks launchd from reading `~/Documents`, `~/Desktop` and `~/Downloads` unless `/bin/bash` has Full Disk Access (System Settings › Privacy & Security). `add` warns when KingsScript lives there; `check` proves the job starts.
+- **Jobs from a source.** `KINGS_SCHEDULE_SOURCE` in `config.env` names a command that keeps the jobs elsewhere (a layer that reads a table, for instance). `kings schedule sync` makes the local jobs match it: adds, updates, turns on/off and removes the jobs the source manages, and never touches jobs added by hand. Run it on an interval (`kings schedule add schedule-sync --every 15 --script "kings schedule sync"`). The command answers three calls:
+
+  | Call | Answer |
+  |---|---|
+  | `<source> jobs <dir>` | One `<name>.env` per job in `<dir>`, with the `JOB_*` settings of the job files (`JOB_KIND`, `JOB_TIME`, `JOB_DAYS`, `JOB_COMMAND` or `JOB_PROMPT`, `JOB_MODEL`, `JOB_CLAUDE_ARGS`, `JOB_WORKDIR`, `JOB_TIMEOUT`, `JOB_ENABLED`, `JOB_NOTIFY`, `JOB_ON_START`, `JOB_ON_FINISH`). Non-zero exit = unreachable: the local jobs stay as they are |
+  | `<source> enabled <name>` | `1` or `0`, checked before every scheduled run, so turning a job off at the source takes effect at once; anything else lets it run |
+  | `<source> result <name> <ok\|failed> <time> <seconds>` | Called after every run, to show the outcome at the source; its output goes to the run's log |
+
+  The source is the place to decide what a job may run: `sync` applies whatever it is given. An empty answer while managed jobs exist removes nothing. A job that is running is left for the next sync, because reloading its agent would stop the run. `enable`/`disable` on a managed job last only until the next sync.
 - `KINGS_LAUNCH_AGENTS` (agents folder) and `KINGS_SCHEDULE_NO_LOAD=1` (skip launchctl) exist for testing.
 
 ## Core library

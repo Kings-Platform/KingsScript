@@ -1,7 +1,7 @@
 #!/bin/bash
-# `kings schedule add|list|run|check|logs|enable|disable|remove`: jobs that run at a fixed time of day
-# through launchd, so they fire with every terminal closed. A job is either a shell command
-# (`--script`) or a headless Claude Code prompt (`--ai`).
+# `kings schedule add|list|run|check|logs|enable|disable|remove|sync|export`: jobs that run at a fixed time
+# of day (or every N minutes) through launchd, so they fire with every terminal closed. A job is either a
+# shell command (`--script`) or a headless Claude Code prompt (`--ai`).
 #
 # A job lives in $KINGS_HOME/schedules/<name>.env (outside the repo) and has a launchd agent
 # generated from it in ~/Library/LaunchAgents. The agent only calls `kings schedule run <name>`,
@@ -10,6 +10,9 @@
 # macOS (TCC) blocks launchd jobs from reading ~/Documents, ~/Desktop and ~/Downloads unless
 # /bin/bash has Full Disk Access. `add` warns when the scripts live there and `check` proves the
 # job starts under launchd; granting the access is a manual step in System Settings.
+#
+# KINGS_SCHEDULE_SOURCE (config.env) names a command that keeps the jobs somewhere else, e.g. a table a
+# layer reads; `sync` makes the local jobs match it (see schedule_command_sync for its contract).
 #
 # KINGS_LAUNCH_AGENTS overrides the agents folder and KINGS_SCHEDULE_NO_LOAD=1 skips launchctl:
 # both exist so the command can be tested without touching the real login session.
@@ -27,8 +30,9 @@ KEEP_LOGS=30
 RETRY_DELAY="${KINGS_SCHEDULE_RETRY_DELAY:-300}"
 
 usage() {
-  print_error "Usage: kings schedule add <name> --at HH:MM [--days daily|weekdays|mon,wed,...] (--script <command> | --ai <prompt|@file>) [--model M] [--permission-mode P] [--claude-args '...'] [--workdir DIR] [--timeout SECONDS] [--notify <command>] [--on-start <command>] [--on-finish <command>] [--replace]"
+  print_error "Usage: kings schedule add <name> (--at HH:MM [--days daily|weekdays|mon,wed,...] | --every MINUTES) (--script <command> | --ai <prompt|@file>) [--model M] [--permission-mode P] [--claude-args '...'] [--workdir DIR] [--timeout SECONDS] [--notify <command>] [--on-start <command>] [--on-finish <command>] [--replace]"
   print_error "       kings schedule list | run <name> | check <name> | logs <name> [--list] | enable <name> | disable <name> | remove <name>"
+  print_error "       kings schedule sync [--dry-run] | export"
   exit 1
 }
 
@@ -102,9 +106,14 @@ xml_escape() {
 
 # Loads a job's settings into the JOB_* variables.
 load_job() {
-  JOB_KIND="" JOB_TIME="" JOB_DAYS="" JOB_COMMAND="" JOB_PROMPT="" JOB_MODEL="" JOB_PERMISSION=""
-  JOB_CLAUDE_ARGS="" JOB_WORKDIR="" JOB_TIMEOUT="" JOB_PATH="" JOB_ENABLED="" JOB_NOTIFY="" JOB_ON_START="" JOB_ON_FINISH=""
+  clear_job
   . "$(job_file "$1")"
+}
+
+clear_job() {
+  JOB_KIND="" JOB_TIME="" JOB_EVERY="" JOB_DAYS="" JOB_COMMAND="" JOB_PROMPT="" JOB_MODEL="" JOB_PERMISSION=""
+  JOB_CLAUDE_ARGS="" JOB_WORKDIR="" JOB_TIMEOUT="" JOB_PATH="" JOB_ENABLED="" JOB_NOTIFY="" JOB_ON_START="" JOB_ON_FINISH=""
+  JOB_MANAGED=""
 }
 
 # Writes the settings with %q, so any text round-trips through `.`.
@@ -115,6 +124,7 @@ write_job() {
   {
     printf 'JOB_KIND=%q\n' "$JOB_KIND"
     printf 'JOB_TIME=%q\n' "$JOB_TIME"
+    printf 'JOB_EVERY=%q\n' "$JOB_EVERY"
     printf 'JOB_DAYS=%q\n' "$JOB_DAYS"
     printf 'JOB_COMMAND=%q\n' "$JOB_COMMAND"
     printf 'JOB_PROMPT=%q\n' "$JOB_PROMPT"
@@ -128,6 +138,7 @@ write_job() {
     printf 'JOB_NOTIFY=%q\n' "$JOB_NOTIFY"
     printf 'JOB_ON_START=%q\n' "$JOB_ON_START"
     printf 'JOB_ON_FINISH=%q\n' "$JOB_ON_FINISH"
+    printf 'JOB_MANAGED=%q\n' "$JOB_MANAGED"
   } > "$file"
 }
 
@@ -140,12 +151,14 @@ calendar_entry() {
   printf '    </dict>\n'
 }
 
-# Generates the launchd agent: a calendar trigger that calls `kings schedule run <name>`.
+# Generates the launchd agent: a calendar (or interval) trigger that calls `kings schedule run <name>`.
 write_plist() {
   local name="$1" plist weekdays day
   plist="$(plist_file "$name")"
-  parse_time "$JOB_TIME"
-  weekdays="$(weekday_numbers "$JOB_DAYS")" || exit 1
+  if [ -z "$JOB_EVERY" ]; then
+    parse_time "$JOB_TIME"
+    weekdays="$(weekday_numbers "$JOB_DAYS")" || exit 1
+  fi
   mkdir -p "$AGENTS_DIR" "$(log_dir "$name")"
   {
     printf '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -161,13 +174,17 @@ write_plist() {
     printf '    <key>KINGS_HOME</key><string>%s</string>\n' "$(xml_escape "$KINGS_HOME")"
     printf '    <key>PATH</key><string>%s</string>\n' "$(xml_escape "$JOB_PATH")"
     printf '  </dict>\n'
-    printf '  <key>StartCalendarInterval</key>\n  <array>\n'
-    if [ -z "$weekdays" ]; then
-      calendar_entry ""
+    if [ -n "$JOB_EVERY" ]; then
+      printf '  <key>StartInterval</key><integer>%s</integer>\n' "$((JOB_EVERY * 60))"
     else
-      for day in $weekdays; do calendar_entry "$day"; done
+      printf '  <key>StartCalendarInterval</key>\n  <array>\n'
+      if [ -z "$weekdays" ]; then
+        calendar_entry ""
+      else
+        for day in $weekdays; do calendar_entry "$day"; done
+      fi
+      printf '  </array>\n'
     fi
-    printf '  </array>\n'
     printf '  <key>StandardOutPath</key><string>%s/launchd.log</string>\n' "$(xml_escape "$(log_dir "$name")")"
     printf '  <key>StandardErrorPath</key><string>%s/launchd.log</string>\n' "$(xml_escape "$(log_dir "$name")")"
     printf '</dict>\n</plist>\n'
@@ -219,19 +236,21 @@ warn_if_protected() {
   print_warn "System Settings > Privacy & Security > Full Disk Access > add /bin/bash, then: kings schedule check $1"
 }
 
-# Human-readable "14:00 daily" / "09:00 mon,fri".
+# Human-readable "14:00 daily" / "09:00 mon,fri" / "every 15m".
 describe_when() {
+  [ -n "$JOB_EVERY" ] && { printf 'every %sm' "$JOB_EVERY"; return; }
   printf '%02d:%02d %s' "$((10#${JOB_TIME%%:*}))" "$((10#${JOB_TIME##*:}))" "${JOB_DAYS:-daily}"
 }
 
 # Parses `add`'s options into the JOB_* variables; NAME is the first argument.
 parse_add_args() {
-  JOB_KIND="" JOB_TIME="" JOB_DAYS="daily" JOB_COMMAND="" JOB_PROMPT="" JOB_MODEL="sonnet"
-  JOB_PERMISSION="" JOB_CLAUDE_ARGS="" JOB_WORKDIR="$HOME" JOB_TIMEOUT="" JOB_PATH="$PATH" JOB_ENABLED=1 JOB_NOTIFY="" JOB_ON_START="" JOB_ON_FINISH=""
+  clear_job
+  JOB_DAYS="daily" JOB_MODEL="sonnet" JOB_WORKDIR="$HOME" JOB_PATH="$PATH" JOB_ENABLED=1
   REPLACE=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --at) JOB_TIME="$2"; shift 2 ;;
+      --every) JOB_EVERY="$2"; shift 2 ;;
       --days) JOB_DAYS="$2"; shift 2 ;;
       --script) JOB_KIND=script; JOB_COMMAND="$2"; shift 2 ;;
       --ai) JOB_KIND=ai; JOB_PROMPT="$2"; shift 2 ;;
@@ -247,7 +266,14 @@ parse_add_args() {
       *) usage ;;
     esac
   done
-  [ -n "$JOB_TIME" ] && [ -n "$JOB_KIND" ] || usage
+  [ -n "$JOB_KIND" ] || usage
+  # Exactly one of --at and --every
+  { [ -n "$JOB_TIME" ] || [ -n "$JOB_EVERY" ]; } && { [ -z "$JOB_TIME" ] || [ -z "$JOB_EVERY" ]; } || usage
+  case "$JOB_EVERY" in
+    "") ;;
+    *[!0-9]* | 0) print_error "--every takes minutes"; exit 1 ;;
+    *) JOB_DAYS="" ;;
+  esac
   [ -n "$JOB_TIMEOUT" ] || { [ "$JOB_KIND" = ai ] && JOB_TIMEOUT=3600 || JOB_TIMEOUT=0; }
   case "$JOB_TIMEOUT" in
     *[!0-9]*) print_error "--timeout takes seconds"; exit 1 ;;
@@ -261,8 +287,10 @@ schedule_command_add() {
   shift
   require_valid_name "$name"
   parse_add_args "$@"
-  parse_time "$JOB_TIME"
-  weekday_numbers "$JOB_DAYS" > /dev/null || exit 1
+  if [ -z "$JOB_EVERY" ]; then
+    parse_time "$JOB_TIME"
+    weekday_numbers "$JOB_DAYS" > /dev/null || exit 1
+  fi
   if [ -f "$(job_file "$name")" ] && [ "$REPLACE" -ne 1 ]; then
     print_error "Job '$name' already exists (use --replace to overwrite)"
     exit 1
@@ -422,6 +450,10 @@ schedule_command_run() {
     log "schedule $JOB_NAME: disabled, skipped"
     exit 0
   fi
+  if [ "$scheduled" -eq 1 ] && [ "$(source_enabled "$JOB_NAME")" = 0 ]; then
+    log "schedule $JOB_NAME: disabled at the source, skipped"
+    exit 0
+  fi
   acquire_job_lock "$JOB_NAME"
   mkdir -p "$(log_dir "$JOB_NAME")"
   logfile="$(log_dir "$JOB_NAME")/run-$(date +%Y%m%d-%H%M%S).log"
@@ -467,6 +499,10 @@ record_result() {
     printf 'SECONDS=%s\n' "$(($(date +%s) - $2))"
     printf 'LOG=%s\n' "$3"
   } > "$(last_file "$JOB_NAME")"
+  # The source shows the outcome too; a source that can't be reached never fails the run.
+  [ "$JOB_MANAGED" = 1 ] && source_call result "$JOB_NAME" "$([ "$1" -eq 0 ] && printf ok || printf failed)" \
+    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(($(date +%s) - $2))" >> "$3" 2>&1
+  return 0
 }
 
 schedule_command_logs() {
@@ -521,6 +557,12 @@ schedule_command_check() {
   esac
 }
 
+# A managed job's on/off comes from the source: a local change lasts until the next sync.
+warn_if_managed() {
+  [ "$JOB_MANAGED" = 1 ] && print_warn "'$1' is managed by the source: change it there, or the next sync undoes this"
+  return 0
+}
+
 schedule_command_enable() {
   require_job "$1"
   load_job "$1"
@@ -529,6 +571,7 @@ schedule_command_enable() {
   write_plist "$1"
   launch_load "$1"
   print_success "Enabled '$1'"
+  warn_if_managed "$1"
 }
 
 schedule_command_disable() {
@@ -538,6 +581,7 @@ schedule_command_disable() {
   write_job "$1"
   launch_unload "$1"
   print_success "Disabled '$1' (kings schedule enable $1 turns it back on)"
+  warn_if_managed "$1"
 }
 
 schedule_command_remove() {
@@ -546,6 +590,169 @@ schedule_command_remove() {
   rm -f "$(job_file "$1")" "$(last_file "$1")" "$(plist_file "$1")"
   rm -rf "$(log_dir "$1")" "$(lock_dir "$1")"
   print_success "Removed '$1'"
+}
+
+# Calls the source command (KINGS_SCHEDULE_SOURCE) with the given arguments; fails when there is none.
+source_call() {
+  [ -n "$KINGS_SCHEDULE_SOURCE" ] || return 1
+  /bin/bash -c "$KINGS_SCHEDULE_SOURCE \"\$@\"" _ "$@"
+}
+
+# "0" when the source says a job it manages is off; anything else (on, unknown, unreachable) lets it run.
+source_enabled() {
+  [ "$JOB_MANAGED" = 1 ] || return 0
+  source_call enabled "$1" 2> /dev/null | tail -n 1
+}
+
+job_running() {
+  local pid
+  pid="$(cat "$(lock_dir "$1")/pid" 2> /dev/null)"
+  [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null
+}
+
+# The settings that decide what runs and when, normalized (time, order of the days), so equal jobs compare equal.
+job_signature() {
+  local when
+  if [ -n "$JOB_EVERY" ]; then
+    when="every $JOB_EVERY"
+  else
+    parse_time "$JOB_TIME"
+    when="$HOUR:$MINUTE $(weekday_numbers "$JOB_DAYS" | sort | tr '\n' ',')"
+  fi
+  printf '%s\n' "$when" "$JOB_KIND" "$JOB_COMMAND" "$JOB_PROMPT" "$JOB_MODEL" "$JOB_PERMISSION" "$JOB_CLAUDE_ARGS" \
+    "$JOB_WORKDIR" "${JOB_TIMEOUT:-0}" "$JOB_ENABLED" "$JOB_NOTIFY" "$JOB_ON_START" "$JOB_ON_FINISH"
+}
+
+# Prints one change and, unless --dry-run, makes it. "adopt" only marks an identical local job as the
+# source's. A running job is left for the next sync: reloading its agent would stop the run.
+sync_apply() {
+  local action="$1" name="$2" file="$3" path="$4"
+  printf '%s %s\n' "$action" "$name"
+  SYNC_CHANGES=$((SYNC_CHANGES + 1))
+  [ "$SYNC_DRY" -eq 1 ] && return
+  if job_running "$name"; then
+    print_warn "'$name' is running; left for the next sync"
+    return
+  fi
+  if [ "$action" = remove ]; then
+    schedule_command_remove "$name"
+    return
+  fi
+  clear_job
+  . "$file"
+  JOB_PATH="${path:-$PATH}" JOB_MANAGED=1
+  if [ ! -d "$JOB_WORKDIR" ]; then
+    print_warn "Skipped '$name': workdir does not exist ($JOB_WORKDIR)"
+    return
+  fi
+  write_job "$name"
+  [ "$action" = adopt ] && return
+  write_plist "$name"
+  if [ "$JOB_ENABLED" = 1 ]; then launch_load "$name"; else launch_unload "$name"; fi
+}
+
+# Brings one local job in line with the source's copy of it (an .env file the source wrote).
+sync_job() {
+  local name="$1" file="$2" wanted
+  case "$name" in
+    "" | -* | *[!a-z0-9-]*) print_warn "Skipped '$name': invalid job name"; return ;;
+  esac
+  if ! wanted="$(clear_job; . "$file" && job_signature 2> /dev/null)"; then
+    print_warn "Skipped '$name': invalid time or days"
+    return
+  fi
+  if [ ! -f "$(job_file "$name")" ]; then
+    sync_apply add "$name" "$file" ""
+    return
+  fi
+  load_job "$name"
+  if [ "$(job_signature)" != "$wanted" ]; then
+    sync_apply update "$name" "$file" "$JOB_PATH"
+  elif [ "$JOB_MANAGED" != 1 ]; then
+    sync_apply adopt "$name" "$file" "$JOB_PATH"
+  fi
+}
+
+# Makes the local jobs match the source. Contract of the KINGS_SCHEDULE_SOURCE command:
+#   <source> jobs <dir>         writes one <name>.env per job into <dir>, in the format write_job uses
+#                               (JOB_PATH and JOB_MANAGED excluded); a non-zero exit means "unreachable"
+#   <source> enabled <name>     prints 1 or 0 — checked before every scheduled run of a managed job
+#   <source> result <name> <ok|failed> <time> <seconds>   after every run of a managed job
+# Only jobs the source manages are changed or removed; jobs added by hand stay untouched. When the
+# source can't be read, the last synced state stays in force.
+schedule_command_sync() {
+  local incoming file name managed=0
+  SYNC_DRY=0 SYNC_CHANGES=0
+  [ "$1" = "--dry-run" ] && SYNC_DRY=1
+  if [ -z "$KINGS_SCHEDULE_SOURCE" ]; then
+    print_error "No KINGS_SCHEDULE_SOURCE in config.env"
+    exit 1
+  fi
+  incoming="$(mktemp -d)"
+  trap 'rm -rf "$incoming"' EXIT
+  if ! source_call jobs "$incoming"; then
+    print_warn "Couldn't read the jobs from the source; the local jobs stay as they are"
+    exit 0
+  fi
+  for file in "$incoming"/*.env; do
+    [ -f "$file" ] || continue
+    sync_job "$(basename "$file" .env)" "$file"
+  done
+  for file in "$SCHEDULE_DIR"/*.env; do
+    [ -f "$file" ] || continue
+    name="$(basename "$file" .env)"
+    [ -f "$incoming/$name.env" ] && continue
+    load_job "$name"
+    [ "$JOB_MANAGED" = 1 ] && managed=$((managed + 1))
+  done
+  # An empty answer is more likely a broken source than "delete every job"
+  if ! ls "$incoming"/*.env > /dev/null 2>&1 && [ "$managed" -gt 0 ]; then
+    print_warn "The source returned no jobs; nothing removed"
+    exit 0
+  fi
+  for file in "$SCHEDULE_DIR"/*.env; do
+    [ -f "$file" ] || continue
+    name="$(basename "$file" .env)"
+    [ -f "$incoming/$name.env" ] && continue
+    load_job "$name"
+    [ "$JOB_MANAGED" = 1 ] && sync_apply remove "$name"
+  done
+  if [ "$SYNC_CHANGES" -eq 0 ]; then
+    print_info "In sync: nothing to change"
+  elif [ "$SYNC_DRY" -eq 1 ]; then
+    print_info "$SYNC_CHANGES change(s); nothing applied (--dry-run)"
+  else
+    print_success "$SYNC_CHANGES change(s) applied"
+  fi
+}
+
+# Prints an `add` line per job, enough to recreate them on a machine without the source.
+schedule_command_export() {
+  local file name
+  for file in "$SCHEDULE_DIR"/*.env; do
+    [ -f "$file" ] || continue
+    name="$(basename "$file" .env)"
+    load_job "$name"
+    printf 'kings schedule add %q' "$name"
+    if [ -n "$JOB_EVERY" ]; then
+      printf ' --every %q' "$JOB_EVERY"
+    else
+      printf ' --at %q --days %q' "$JOB_TIME" "${JOB_DAYS:-daily}"
+    fi
+    if [ "$JOB_KIND" = script ]; then
+      printf ' --script %q' "$JOB_COMMAND"
+    else
+      printf ' --ai %q --model %q' "$JOB_PROMPT" "$JOB_MODEL"
+      [ -n "$JOB_PERMISSION" ] && printf ' --permission-mode %q' "$JOB_PERMISSION"
+      [ -n "$JOB_CLAUDE_ARGS" ] && printf ' --claude-args %q' "$JOB_CLAUDE_ARGS"
+    fi
+    printf ' --workdir %q --timeout %q' "$JOB_WORKDIR" "${JOB_TIMEOUT:-0}"
+    [ -n "$JOB_NOTIFY" ] && printf ' --notify %q' "$JOB_NOTIFY"
+    [ -n "$JOB_ON_START" ] && printf ' --on-start %q' "$JOB_ON_START"
+    [ -n "$JOB_ON_FINISH" ] && printf ' --on-finish %q' "$JOB_ON_FINISH"
+    printf ' --replace\n'
+    [ "$JOB_ENABLED" = 1 ] || printf 'kings schedule disable %q\n' "$name"
+  done
 }
 
 case "$1" in
@@ -557,5 +764,7 @@ case "$1" in
   enable) [ -n "$2" ] || usage; schedule_command_enable "$2" ;;
   disable) [ -n "$2" ] || usage; schedule_command_disable "$2" ;;
   remove) [ -n "$2" ] || usage; schedule_command_remove "$2" ;;
+  sync) schedule_command_sync "$2" ;;
+  export) schedule_command_export ;;
   *) usage ;;
 esac
