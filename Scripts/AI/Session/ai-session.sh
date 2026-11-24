@@ -35,9 +35,8 @@ require_tools() {
   [ -d "$DIR" ] || { print_error "Folder not found: $DIR"; exit 1; }
 }
 
-# tmux names can't hold dots or colons; the Remote Control title keeps the name as typed.
 session_id() {
-  printf '%s\n' "$NAME" | tr ' .:' '---'
+  tmux_name_of "$NAME"
 }
 
 # A second session with the same name would hide the first one behind `tmux attach`.
@@ -87,7 +86,7 @@ accept_resume_menu() {
 }
 
 record_session() {
-  registry_set "$(session_id)" "$NAME" "$(cd "$DIR" && pwd)" "$SESSION_ID"
+  registry_set "$NAME" "$(cd "$DIR" && pwd)" "$SESSION_ID"
 }
 
 parse_args "$@"
