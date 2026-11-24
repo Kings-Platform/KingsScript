@@ -38,6 +38,7 @@ print_core_commands() {
   row "docs-check [--root DIR]" "Find broken links, anchors and orphan pages in docs"
   row "ai-update [--auto]" "Update the installed Claude Code plugins"
   row "ai-session <name> [--dir D] [--resume ID]" "Start a Claude Code session in tmux with Remote Control"
+  row "ai-resume [--restart] [name...]" "Bring back the sessions ai-session started (--forget <name>)"
 
   printf '\nDesign:\n'
   row "fig-parse <file.fig> [flags]" "Extract layout, colors and text from a Figma file"

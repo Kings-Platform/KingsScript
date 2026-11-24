@@ -2,13 +2,15 @@
 # `kings ai-session <name> [--dir DIR] [--resume SESSION_ID]`: starts a Claude Code session in a
 # detached tmux session with Remote Control on, so it can be driven from claude.ai or the phone.
 # The tmux session and the Remote Control title share the name. --resume reopens an existing
-# conversation instead of starting a new one.
+# conversation instead of starting a new one. Every session is recorded for `kings ai-resume`.
 
 . "$KINGS_CORE/print.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/registry.sh"
 
 NAME=""
 DIR="$PWD"
 RESUME=""
+SESSION_ID=""
 
 usage() {
   print_error "Usage: kings ai-session <name> [--dir DIR] [--resume SESSION_ID]"
@@ -49,8 +51,15 @@ start_session() {
   # Long-lived sessions never update themselves: a running session that sees a newer version reinstalls the
   # binary in place on every check, which breaks scheduled jobs running at that moment. `claude-update` updates
   # once a day instead.
-  local cmd="env DISABLE_AUTOUPDATER=1 claude --remote-control \"$NAME\""
-  [ -n "$RESUME" ] && cmd="env DISABLE_AUTOUPDATER=1 claude --resume \"$RESUME\" --remote-control \"$NAME\""
+  # A new session gets its id up front, so it can be recorded without digging through Claude's files.
+  local cmd
+  if [ -n "$RESUME" ]; then
+    SESSION_ID="$RESUME"
+    cmd="env DISABLE_AUTOUPDATER=1 claude --resume \"$RESUME\" --remote-control \"$NAME\""
+  else
+    SESSION_ID="$(uuidgen | tr 'A-Z' 'a-z')"
+    cmd="env DISABLE_AUTOUPDATER=1 claude --session-id \"$SESSION_ID\" --remote-control \"$NAME\""
+  fi
   tmux new-session -d -s "$(session_id)" -c "$DIR" "$cmd"
 }
 
@@ -62,10 +71,31 @@ confirm_running() {
   exit 1
 }
 
+# Resuming a large conversation stops on a "Resume / Start a new conversation" menu, with Resume
+# selected; nobody is attached to answer it. The Remote Control link means no menu came up.
+accept_resume_menu() {
+  [ -n "$RESUME" ] || return 0
+  local screen i
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    screen="$(tmux capture-pane -p -t "=$(session_id):" 2> /dev/null)"
+    case "$screen" in
+      *"Start a new conversation"*) tmux send-keys -t "=$(session_id):" Enter; return ;;
+      *"claude.ai/code/session_"*) return ;;
+    esac
+    sleep 1
+  done
+}
+
+record_session() {
+  registry_set "$(session_id)" "$NAME" "$(cd "$DIR" && pwd)" "$SESSION_ID"
+}
+
 parse_args "$@"
 require_tools
 refuse_existing
 start_session
 confirm_running
+accept_resume_menu
+record_session
 print_success "Session '$NAME' running in $DIR"
 printf 'tmux attach -t %s\n' "$(session_id)"
